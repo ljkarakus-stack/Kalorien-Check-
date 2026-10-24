@@ -74,7 +74,8 @@ function allFoods() {
   return [...state.custom, ...FOODS];
 }
 function foodById(id) {
-  return allFoods().find(f => f.id === id);
+  const idea = id.startsWith("idee-") && ideaById(id.slice(5));
+  return idea ? ideaFood(idea) : allFoods().find(f => f.id === id);
 }
 // Nutrients for an amount: grams for per-100 g foods, count for portion foods
 function scale(food, amount) {
@@ -271,6 +272,7 @@ function render() {
   if (view === "today") renderToday();
   if (view === "week") renderWeek();
   if (view === "profile") renderProfile();
+  if (view === "ideas") renderIdeas($("#ideas-page"), false);
 }
 
 function showView(v) {
@@ -311,11 +313,11 @@ function showTab(tab) {
   if (tab !== "scan") stopScan();
   $$("#sheet .tab").forEach(t => t.hidden = t.dataset.tab !== tab);
   $$("#add-tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
-  if (tab === "plans") renderPlans();
+  if (tab === "ideas") renderIdeas($("#ideas-sheet"), true);
 }
 
 function renderFoodList() {
-  const cats = ["Alle", "Zuletzt", ...(state.custom.length ? ["Eigene"] : []), ...new Set(FOODS.map(f => f.cat))];
+  const cats = ["Alle", "Zuletzt", ...(state.custom.length ? ["Eigene"] : []), ...CATEGORIES];
   if (!cats.includes(activeCat)) activeCat = "Alle";
   $("#cats").innerHTML = cats.map(c => `<button class="chip ${c === activeCat ? "active" : ""}" data-cat="${esc(c)}">${esc(c)}</button>`).join("");
 
@@ -407,28 +409,58 @@ function pickOnline(id) {
   showAmount(food, pick.slot);
 }
 
-function renderPlans() {
-  $("#plan-list").innerHTML = PLANS.map(p => {
-    const t = p.items.reduce((a, [id, amt]) => {
-      const s = scale(foodById(id), amt);
-      return { kcal: a.kcal + s.kcal, p: a.p + s.p };
-    }, { kcal: 0, p: 0 });
-    return `<div class="card plan">
-      <h3>${esc(p.name)}</h3>
-      <p class="muted">${esc(p.note)}<br>Gesamt: ${num(t.kcal)} kcal · ${num(t.p)} g Protein</p>
-      <button class="btn" data-plan="${p.id}">Ganzen Tag übernehmen</button>
-    </div>`;
+// ---------- Ideas (recipes from @jamileo__) ----------
+
+const ideaById = id => IDEAS.find(i => i.id === id);
+
+function ideaTotals(idea) {
+  if (idea.meals) return idea.meals.map(id => ideaTotals(ideaById(id)))
+    .reduce((t, x) => ({ kcal: t.kcal + x.kcal, p: t.p + x.p, kh: t.kh + x.kh, f: t.f + x.f }));
+  return idea.items.reduce((t, [id, g]) => {
+    const x = scale(FOODS.find(f => f.id === id), g);
+    return { kcal: t.kcal + x.kcal, p: t.p + x.p, kh: t.kh + x.kh, f: t.f + x.f };
+  }, { kcal: 0, p: 0, kh: 0, f: 0 });
+}
+
+// A recipe is logged as one entry per portion
+function ideaFood(idea) {
+  return { id: "idee-" + idea.id, name: idea.title, cat: "Ideen", portion: "Portion", ...ideaTotals(idea) };
+}
+
+function renderIdeas(el, compact) {
+  el.innerHTML = IDEAS.map(idea => {
+    const t = ideaTotals(idea);
+    const ingredients = idea.meals
+      ? idea.meals.map(id => ideaById(id).title)
+      : idea.items.map(([id, g]) => `${num(g)} ${unitOf(FOODS.find(f => f.id === id))} ${FOODS.find(f => f.id === id).name}`);
+    return `<article class="card idea">
+      <img src="${idea.photo}" alt="" loading="lazy">
+      <div class="idea-body">
+        <h3>${esc(idea.title)}</h3>
+        <p class="idea-macros"><span class="emoji">🔥</span> ${num(t.kcal)} kcal · <span class="emoji">💪</span> ${num(t.p)} g Protein</p>
+        ${compact ? "" : `<p class="muted">${esc(idea.text)}</p>
+        <details><summary>${idea.meals ? "Mahlzeiten" : "Zutaten"}</summary><ul>${ingredients.map(i => `<li>${esc(i)}</li>`).join("")}</ul></details>`}
+        <button class="btn" data-idea="${idea.id}">${idea.meals ? "Ganzen Tag eintragen" : "Nachgekocht? Eintragen"}</button>
+      </div>
+    </article>`;
   }).join("");
 }
 
-function applyPlan(id) {
-  const plan = PLANS.find(p => p.id === id);
-  const d = ensureDay();
-  for (const [fid, amt, slot] of plan.items) d.entries.push(makeEntry(foodById(fid), amt, slot));
-  save();
-  closeSheet();
-  render();
-  toast(`„${plan.name}“ eingetragen`);
+function cookIdea(id, fromSheet) {
+  const idea = ideaById(id);
+  if (idea.meals) {
+    const d = ensureDay();
+    for (const m of idea.meals.map(ideaById)) d.entries.push(makeEntry(ideaFood(m), 1, m.slot));
+    save();
+    closeSheet();
+    showView("today");
+    toast(`„${idea.title}“ eingetragen`);
+    return;
+  }
+  const slot = fromSheet ? pick.slot : idea.slot;
+  pick = { slot };
+  $("#sheet").hidden = false;
+  showAmount(ideaFood(idea), slot, null, { u: "Portion", n: 1 });
 }
 
 // amount is in grams/ml (or portions); unit is the household unit it was entered in, if any
@@ -656,31 +688,17 @@ function submitOnboarding(e) {
   toast("Deine Ziele sind gespeichert. Du kannst sie im Profil ändern.");
 }
 
-// ---------- Data export / import ----------
+// ---------- Feedback ----------
 
-function exportData() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `kalorien-check-${todayKey()}.json`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-}
-
-function importData(file) {
-  const r = new FileReader();
-  r.onload = () => {
-    try {
-      const data = JSON.parse(r.result);
-      if (!data || typeof data !== "object" || !data.days) throw new Error();
-      if (!confirm("Deine aktuellen Daten werden durch die Datei ersetzt. Fortfahren?")) return;
-      state = Object.assign(blankState(), data);
-      save();
-      if (!state.goals) openOnboarding(); else showView("today");
-      toast("Daten importiert");
-    } catch (e) { toast("Die Datei konnte nicht gelesen werden"); }
-  };
-  r.readAsText(file);
+// No server needed: hands the message to the person's own mail app
+function sendFeedback(e) {
+  e.preventDefault();
+  const msg = e.target.elements.message.value.trim();
+  if (!msg) return;
+  const body = `${msg}\n\n—\nGesendet aus dem jamileo Kalorien-Check`;
+  location.href = `mailto:collab@jamileo.com?subject=${encodeURIComponent("Feedback zum Kalorien-Check")}&body=${encodeURIComponent(body)}`;
+  e.target.reset();
+  toast("Danke! Deine E-Mail-App öffnet sich.");
 }
 
 // ---------- Events ----------
@@ -704,7 +722,7 @@ document.addEventListener("click", e => {
   else if (b.dataset.food) { const f = foodById(b.dataset.food); showAmount(f, pick.slot); }
   else if (b.dataset.online) pickOnline(b.dataset.online);
   else if (b.hasAttribute("data-online-search")) searchOnline();
-  else if (b.dataset.plan) applyPlan(b.dataset.plan);
+  else if (b.dataset.idea) cookIdea(b.dataset.idea, !!b.closest("#sheet"));
   else if (b.dataset.amount) { $("#amount").value = b.dataset.amount; pick.exact = null; updatePreview(); }
   else if (b.dataset.basis) { manualBasis = b.dataset.basis; $$("#manual-basis button").forEach(x => x.classList.toggle("active", x === b)); }
 });
@@ -753,8 +771,7 @@ $("#weight-form").addEventListener("submit", e => {
   toast("Gewicht gespeichert");
 });
 
-$("#export").addEventListener("click", exportData);
-$("#import").addEventListener("change", e => { if (e.target.files[0]) importData(e.target.files[0]); e.target.value = ""; });
+$("#feedback-form").addEventListener("submit", sendFeedback);
 $("#reset").addEventListener("click", () => {
   if (!confirm("Wirklich alle Einträge, Ziele und eigenen Lebensmittel löschen?")) return;
   state = blankState();

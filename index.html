@@ -98,6 +98,17 @@
     </div>
   </section>
 
+  <!-- Ideen -->
+  <section id="view-ideas" class="view" hidden>
+    <h2 class="brush dark">Ideen</h2>
+    <p class="script lead">Nachgekocht? Mit einem Tipp eintragen!</p>
+    <div class="ideas" id="ideas-page"></div>
+    <a class="card insta" href="https://www.instagram.com/jamileo__/" target="_blank" rel="noopener">
+      <span class="script">Neue Ideen jede Woche</span>
+      <b>@jamileo__ auf Instagram ›</b>
+    </a>
+  </section>
+
   <!-- Profil -->
   <section id="view-profile" class="view" hidden>
     <h2 class="brush dark">Profil &amp; Ziele</h2>
@@ -136,13 +147,17 @@
       <button class="btn" id="install-btn" hidden>App installieren</button>
     </div>
 
+    <form class="card form" id="feedback-form">
+      <h3><span class="emoji">💌</span> Feedback</h3>
+      <p class="muted">Was gefällt dir, was fehlt? Welches Lebensmittel oder welche Idee wünschst du dir? Wir lesen alles!</p>
+      <textarea name="message" rows="4" maxlength="2000" required placeholder="Deine Nachricht …"></textarea>
+      <button class="btn">Feedback senden</button>
+      <p class="muted small">Öffnet deine E-Mail-App mit einer Nachricht an collab@jamileo.com.</p>
+    </form>
+
     <div class="card">
-      <h3><span class="emoji">💾</span> Deine Daten</h3>
-      <p class="muted">Alles bleibt nur auf diesem Gerät gespeichert. Sichere es ab und zu als Datei, damit nichts verloren geht.</p>
-      <div class="btn-row">
-        <button class="btn" id="export">Exportieren</button>
-        <label class="btn ghost">Importieren<input type="file" accept="application/json,.json" id="import" hidden></label>
-      </div>
+      <h3><span class="emoji">🗑️</span> Daten löschen</h3>
+      <p class="muted">Löscht alle Einträge, Ziele und eigenen Lebensmittel. Wenn du angemeldet bist, auch in deinem Konto.</p>
       <button class="btn danger" id="reset">Alle Daten löschen</button>
     </div>
 
@@ -153,6 +168,7 @@
 
 <nav class="tabs">
   <button data-view="today" class="active"><span class="emoji">🍽️</span>Heute</button>
+  <button data-view="ideas"><span class="emoji">💡</span>Ideen</button>
   <button class="add-fab" id="fab" aria-label="Essen hinzufügen">+</button>
   <button data-view="week"><span class="emoji">📊</span>Woche</button>
   <button data-view="profile"><span class="emoji">👤</span>Profil</button>
@@ -168,7 +184,7 @@
 
     <div class="seg" id="add-tabs">
       <button data-tab="search" class="active">Liste</button>
-      <button data-tab="plans">Pläne</button>
+      <button data-tab="ideas">Ideen</button>
       <button data-tab="manual">Manuell</button>
       <button data-tab="scan">Scannen</button>
     </div>
@@ -180,8 +196,8 @@
       <div id="online"></div>
     </div>
 
-    <div class="tab" data-tab="plans" hidden>
-      <div id="plan-list"></div>
+    <div class="tab" data-tab="ideas" hidden>
+      <div class="ideas compact" id="ideas-sheet"></div>
     </div>
 
     <form class="tab form" data-tab="manual" id="manual-form" hidden>
