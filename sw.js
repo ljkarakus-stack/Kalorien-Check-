@@ -1,5 +1,5 @@
-// Offline cache for the app shell. Bump VERSION when files change.
-const VERSION = "kc-v2";
+// Offline cache for the app shell.
+const VERSION = "kc-v3";
 const SHELL = [
   "./", "index.html", "app.css", "app.js", "foods.js", "manifest.webmanifest",
   "fonts/Baloo2.ttf", "fonts/CaveatBrush.ttf", "vendor/zxing-browser.min.js",
@@ -20,5 +20,11 @@ self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
   // Product lookups always go to the network
   if (url.origin !== location.origin || e.request.method !== "GET") return;
-  e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request)));
+  // Network first so updates show up right away; the cache is only the offline fallback
+  e.respondWith(fetch(e.request)
+    .then(res => {
+      if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(e.request, copy)); }
+      return res;
+    })
+    .catch(() => caches.match(e.request, { ignoreSearch: true })));
 });
