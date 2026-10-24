@@ -144,6 +144,13 @@ input:focus, select:focus { outline: none; border-color: var(--bordeaux); }
 .empty { color: var(--muted); font-size: 15px; margin: 4px 0 0; }
 
 .notice { background: var(--rosa); }
+.link { border: 0; background: none; padding: 0; color: var(--bordeaux); font-weight: 800; text-decoration: underline; cursor: pointer; font-size: inherit; }
+.auth-msg { margin: 0; color: var(--bordeaux); font-weight: 700; min-height: 1em; }
+.auth-msg:empty { display: none; }
+.form label.check > span { display: block; font-weight: 600; font-size: 14px; line-height: 1.35; }
+.form label.check a { color: var(--bordeaux); }
+.form label.check { align-items: flex-start; }
+.legal a { color: var(--bordeaux); font-weight: 700; }
 .notice p { margin: 6px 0 0; }
 .insta { display: flex; flex-direction: column; align-items: center; text-decoration: none; background: var(--rosa); text-align: center; }
 .insta .script { font-size: 26px; }

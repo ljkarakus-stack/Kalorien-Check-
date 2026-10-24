@@ -1,7 +1,8 @@
 // Offline cache for the app shell.
-const VERSION = "kc-v4";
+const VERSION = "kc-v5";
 const SHELL = [
-  "./", "index.html", "app.css", "app.js", "foods.js", "manifest.webmanifest",
+  "./", "index.html", "app.css", "app.js", "account.js", "config.js", "foods.js", "manifest.webmanifest",
+  "datenschutz.html", "impressum.html", "vendor/supabase.min.js",
   "fonts/Baloo2.ttf", "fonts/CaveatBrush.ttf", "vendor/zxing-browser.min.js",
   "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png",
 ];

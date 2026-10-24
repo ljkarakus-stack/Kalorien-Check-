@@ -25,9 +25,12 @@ function load() {
 
 let state = load();
 
-function save() {
+// touch = false stores without marking a change, e.g. when data just came from the account
+function save(touch = true) {
+  if (touch) state.updatedAt = Date.now();
   try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
   catch (e) { toast("Speichern nicht möglich (privater Modus?)"); }
+  if (touch) window.onLocalChange?.();
 }
 
 let currentDay = todayKey();
