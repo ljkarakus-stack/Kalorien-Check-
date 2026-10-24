@@ -1,5 +1,5 @@
 // Offline cache for the app shell. Bump VERSION when files change.
-const VERSION = "kc-v1";
+const VERSION = "kc-v2";
 const SHELL = [
   "./", "index.html", "app.css", "app.js", "foods.js", "manifest.webmanifest",
   "fonts/Baloo2.ttf", "fonts/CaveatBrush.ttf", "vendor/zxing-browser.min.js",

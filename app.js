@@ -78,8 +78,18 @@ function scale(food, amount) {
   const factor = food.portion ? amount : amount / 100;
   return { kcal: food.kcal * factor, p: food.p * factor, kh: food.kh * factor, f: food.f * factor };
 }
+function unitOf(food) {
+  return food.ml ? "ml" : "g";
+}
 function baseLabel(food) {
-  return food.portion ? `pro ${food.portion}` : "pro 100 g";
+  return food.portion ? `pro ${food.portion}` : `pro 100 ${unitOf(food)}`;
+}
+function defaultAmount(food) {
+  return state.amounts[food.id] || (food.portion ? 1 : food.piece ? food.piece[1] : 100);
+}
+// Lowercase and fold umlauts so "haehnchen" finds "Hähnchen"
+function fold(str) {
+  return str.toLowerCase().replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss");
 }
 
 let toastTimer;
@@ -286,19 +296,84 @@ function renderFoodList() {
   if (!cats.includes(activeCat)) activeCat = "Alle";
   $("#cats").innerHTML = cats.map(c => `<button class="chip ${c === activeCat ? "active" : ""}" data-cat="${esc(c)}">${esc(c)}</button>`).join("");
 
-  const q = $("#search").value.trim().toLowerCase();
+  const raw = $("#search").value.trim();
+  const words = fold(raw).split(/\s+/).filter(Boolean);
   let list;
   if (activeCat === "Zuletzt") list = state.recent.map(foodById).filter(Boolean);
   else if (activeCat === "Eigene") list = state.custom;
   else if (activeCat === "Alle") list = allFoods();
   else list = FOODS.filter(f => f.cat === activeCat);
-  if (q) list = allFoods().filter(f => f.name.toLowerCase().includes(q));
+  if (words.length) list = allFoods().filter(f => words.every(w => fold(f.name).includes(w)));
 
   $("#food-list").innerHTML = list.length ? list.map(f => `<button class="food" data-food="${esc(f.id)}">
       <span class="n">${esc(f.name)}</span><span class="k">${num(f.kcal)} kcal</span>
       <span class="d">${baseLabel(f)} · ${num(f.p, 1)} g Protein · ${num(f.kh, 1)} g KH · ${num(f.f, 1)} g Fett</span>
     </button>`).join("")
-    : `<p class="empty">${activeCat === "Zuletzt" && !q ? "Hier erscheinen deine zuletzt genutzten Lebensmittel." : "Nichts gefunden. Trag es unter „Manuell“ ein oder scanne die Packung."}</p>`;
+    : `<p class="empty">${activeCat === "Zuletzt" && !words.length ? "Hier erscheinen deine zuletzt genutzten Lebensmittel." : "In der Liste nicht gefunden."}</p>`;
+
+  $("#online").innerHTML = raw.length >= 3
+    ? `<button class="add-line" data-online-search>🔎 „${esc(raw)}“ online suchen</button>
+       <p class="muted small center">Markenprodukte aus der freien Datenbank Open Food Facts</p>`
+    : "";
+}
+
+// ---------- Online search (Open Food Facts) ----------
+
+let onlineResults = {};
+
+// Turn an Open Food Facts product into one of our foods, or null if it has no kcal value
+function offFood(product, code) {
+  const n = product?.nutriments;
+  if (!n || n["energy-kcal_100g"] == null) return null;
+  const name = [product.product_name_de || product.product_name, product.brands?.split(",")[0]]
+    .filter(Boolean).join(" · ") || `Produkt ${code}`;
+  return {
+    id: "c-" + code, name, cat: "Eigene", barcode: code, portion: null,
+    kcal: +n["energy-kcal_100g"] || 0, p: +n.proteins_100g || 0, kh: +n.carbohydrates_100g || 0, f: +n.fat_100g || 0,
+  };
+}
+
+async function searchOnline() {
+  const q = $("#search").value.trim();
+  const box = $("#online");
+  box.innerHTML = `<p class="muted center">Suche „${esc(q)}“ …</p>`;
+  const url = "https://world.openfoodfacts.org/cgi/search.pl?" + new URLSearchParams({
+    search_terms: q, search_simple: 1, action: "process", json: 1, page_size: 30, sort_by: "unique_scans_n",
+    tagtype_0: "countries", tag_contains_0: "contains", tag_0: "germany",
+    fields: "code,product_name,product_name_de,brands,nutriments",
+  });
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(r.status);
+    const data = await r.json();
+    onlineResults = {};
+    const foods = (data.products || []).map(pr => offFood(pr, pr.code)).filter(f => f && f.name && plausible(f));
+    foods.forEach(f => onlineResults[f.id] = f);
+    if ($("#search").value.trim() !== q) return;
+    box.innerHTML = foods.length
+      ? `<h3 class="online-head">Online gefunden</h3><div class="list">${foods.map(f => `<button class="food" data-online="${esc(f.id)}">
+          <span class="n">${esc(f.name)}</span><span class="k">${num(f.kcal)} kcal</span>
+          <span class="d">pro 100 g · ${num(f.p, 1)} g Protein · ${num(f.kh, 1)} g KH · ${num(f.f, 1)} g Fett</span>
+        </button>`).join("")}</div>
+        <p class="muted small center">Daten: Open Food Facts. Bitte kurz mit der Packung vergleichen.</p>`
+      : `<p class="empty center">Online nichts gefunden. Trag es unter „Manuell“ ein oder scanne die Packung.</p>`;
+  } catch (e) {
+    box.innerHTML = `<p class="empty center">Die Online-Suche ist gerade nicht erreichbar. Versuch es gleich nochmal.</p>
+      <button class="add-line" data-online-search>Nochmal versuchen</button>`;
+  }
+}
+
+// Drop obviously broken database entries
+function plausible(f) {
+  return f.kcal <= 950 && f.p + f.kh + f.f <= 105;
+}
+
+function pickOnline(id) {
+  const food = onlineResults[id];
+  if (!food) return;
+  state.custom = [food, ...state.custom.filter(f => f.id !== food.id)];
+  save();
+  showAmount(food, defaultAmount(food), pick.slot);
 }
 
 function renderPlans() {
@@ -329,10 +404,10 @@ function makeEntry(food, amount, slot, id) {
   const s = scale(food, amount);
   return {
     id: id || uid(), foodId: food.id, name: food.name, slot, amount,
-    amountLabel: food.portion ? `${num(amount, 2)} × ${food.portion}` : `${num(amount)} g`,
+    amountLabel: food.portion ? `${num(amount, 2)} × ${food.portion}` : `${num(amount)} ${unitOf(food)}`,
     kcal: s.kcal, p: s.p, kh: s.kh, f: s.f,
     // Per-unit values, so the entry stays editable even if the food is removed later
-    base: { portion: food.portion || null, kcal: food.kcal, p: food.p, kh: food.kh, f: food.f },
+    base: { portion: food.portion || null, ml: !!food.ml, piece: food.piece, kcal: food.kcal, p: food.p, kh: food.kh, f: food.f },
   };
 }
 
@@ -343,11 +418,21 @@ function showAmount(food, amount, slot, entryId) {
   showTab("amount");
   $("#pick-name").textContent = food.name;
   $("#pick-base").textContent = `${baseLabel(food)}: ${num(food.kcal)} kcal · ${num(food.p, 1)} g Protein`;
-  $("#amount-unit").textContent = food.portion ? `× ${food.portion}` : "g";
+  $("#amount-unit").textContent = food.portion ? `× ${food.portion}` : unitOf(food);
   $("#amount").value = amount;
   $("#amount").step = food.portion ? "0.25" : "1";
-  const quick = food.portion ? [0.5, 1, 1.5, 2] : [30, 50, 100, 150, 200, 250];
-  $("#quick-amounts").innerHTML = quick.map(q => `<button type="button" class="chip" data-amount="${q}">${food.portion ? num(q, 2) + "×" : q + " g"}</button>`).join("");
+  let quick;
+  if (food.portion) quick = [0.5, 1, 1.5, 2].map(q => [q, num(q, 2) + "×"]);
+  else if (food.ml) quick = [100, 200, 250, 330, 500].map(q => [q, q + " ml"]);
+  else {
+    quick = [50, 100, 150, 200].map(q => [q, q + " g"]);
+    if (food.piece) {
+      const [label, g] = food.piece;
+      const plural = { Scheibe: "Scheiben", Hälfte: "Hälften", Zehe: "Zehen", Kugel: "Kugeln", Keks: "Kekse" }[label] || label;
+      quick = [1, 2, 3].map(n => [n * g, `${n} ${n > 1 ? plural : label} (${n * g} g)`]).concat(quick);
+    }
+  }
+  $("#quick-amounts").innerHTML = quick.map(([v, l]) => `<button type="button" class="chip" data-amount="${v}">${l}</button>`).join("");
   $("#slot").innerHTML = SLOTS.map(s => `<option value="${s.id}" ${s.id === slot ? "selected" : ""}>${s.name}</option>`).join("");
   $("#amount-submit").textContent = entryId ? "Speichern" : "Hinzufügen";
   $("#entry-delete").hidden = !entryId;
@@ -462,18 +547,13 @@ async function lookupBarcode(code) {
   code = String(code).replace(/\D/g, "");
   if (code.length < 6) return toast("Ungültiger Barcode");
   const known = state.custom.find(f => f.barcode === code);
-  if (known) return showAmount(known, state.amounts[known.id] || 100, pick.slot);
+  if (known) return showAmount(known, defaultAmount(known), pick.slot);
   $("#scan-status").textContent = "Suche Produkt …";
   try {
     const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,product_name_de,brands,nutriments`);
     const data = await r.json();
-    const n = data.product?.nutriments;
-    if (data.status !== 1 || !n || n["energy-kcal_100g"] == null) throw new Error("not found");
-    const name = [data.product.product_name_de || data.product.product_name, data.product.brands?.split(",")[0]].filter(Boolean).join(" · ") || `Produkt ${code}`;
-    const food = {
-      id: "c-" + code, name, cat: "Eigene", barcode: code, portion: null,
-      kcal: +n["energy-kcal_100g"] || 0, p: +n.proteins_100g || 0, kh: +n.carbohydrates_100g || 0, f: +n.fat_100g || 0,
-    };
+    const food = data.status === 1 ? offFood(data.product, code) : null;
+    if (!food) throw new Error("not found");
     state.custom = [food, ...state.custom.filter(f => f.barcode !== code)];
     save();
     showAmount(food, 100, pick.slot);
@@ -568,7 +648,9 @@ document.addEventListener("click", e => {
   else if (b.dataset.entry) editEntry(b.dataset.entry);
   else if (b.dataset.tab && b.closest("#add-tabs")) showTab(b.dataset.tab);
   else if (b.dataset.cat) { activeCat = b.dataset.cat; $("#search").value = ""; renderFoodList(); }
-  else if (b.dataset.food) { const f = foodById(b.dataset.food); showAmount(f, state.amounts[f.id] || (f.portion ? 1 : 100), pick.slot); }
+  else if (b.dataset.food) { const f = foodById(b.dataset.food); showAmount(f, defaultAmount(f), pick.slot); }
+  else if (b.dataset.online) pickOnline(b.dataset.online);
+  else if (b.hasAttribute("data-online-search")) searchOnline();
   else if (b.dataset.plan) applyPlan(b.dataset.plan);
   else if (b.dataset.amount) { $("#amount").value = b.dataset.amount; updatePreview(); }
   else if (b.dataset.basis) { manualBasis = b.dataset.basis; $$("#manual-basis button").forEach(x => x.classList.toggle("active", x === b)); }
@@ -579,6 +661,9 @@ $("#sheet-close").addEventListener("click", closeSheet);
 $("#sheet").addEventListener("click", e => { if (e.target.id === "sheet") closeSheet(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#sheet").hidden) closeSheet(); });
 $("#search").addEventListener("input", renderFoodList);
+$("#search").addEventListener("keydown", e => {
+  if (e.key === "Enter" && $("#search").value.trim().length >= 3) { e.preventDefault(); searchOnline(); }
+});
 $("#amount").addEventListener("input", updatePreview);
 $("#amount-form").addEventListener("submit", submitAmount);
 $("#entry-delete").addEventListener("click", deleteEntry);

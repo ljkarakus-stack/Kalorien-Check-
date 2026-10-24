@@ -196,6 +196,8 @@ input:focus, select:focus { outline: none; border-color: var(--bordeaux); }
 .food .d { grid-column: 1 / -1; font-size: 14px; color: var(--muted); }
 
 .plan { margin-bottom: 12px; }
+#online { margin-top: 12px; }
+.online-head { margin: 18px 0 10px; }
 .plan p { margin: 4px 0 10px; }
 
 .form { display: flex; flex-direction: column; gap: 12px; }
