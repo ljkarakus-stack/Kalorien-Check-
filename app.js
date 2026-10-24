@@ -84,8 +84,28 @@ function unitOf(food) {
 function baseLabel(food) {
   return food.portion ? `pro ${food.portion}` : `pro 100 ${unitOf(food)}`;
 }
-function defaultAmount(food) {
-  return state.amounts[food.id] || (food.portion ? 1 : food.piece ? food.piece[1] : 100);
+// Household units for a food (Stück, Scheibe, EL …) followed by the base unit (g / ml / portion)
+function unitsOf(food) {
+  if (food.portion) return [{ label: food.portion, size: 1 }];
+  const extra = [food.piece, ...(food.units || [])].filter(Boolean).map(([label, size]) => ({ label, size }));
+  return [...extra, { label: unitOf(food), size: 1 }];
+}
+const PLURALS = {
+  Scheibe: "Scheiben", Hälfte: "Hälften", Zehe: "Zehen", Kugel: "Kugeln", Keks: "Kekse", Tasse: "Tassen",
+  Dose: "Dosen", "kleine Dose": "kleine Dosen", Flasche: "Flaschen", "kleine Flasche": "kleine Flaschen",
+  Packung: "Packungen", Filet: "Filets", Glas: "Gläser", Schüssel: "Schüsseln", Portion: "Portionen",
+  Shake: "Shakes", Pizza: "Pizzen", "großer Becher": "große Becher",
+};
+function unitText(label, n) {
+  return n === 1 ? label : PLURALS[label] || label;
+}
+// Last used unit and count, or one piece / 100 g
+function defaultPick(food) {
+  const units = unitsOf(food);
+  const pref = state.amounts[food.id];
+  if (pref && typeof pref === "object" && units.some(u => u.label === pref.u)) return pref;
+  if (typeof pref === "number") return { u: units[units.length - 1].label, n: pref };
+  return { u: units[0].label, n: units[0].size === 1 && !food.portion ? 100 : 1 };
 }
 // Lowercase and fold umlauts so "haehnchen" finds "Hähnchen"
 function fold(str) {
@@ -303,7 +323,15 @@ function renderFoodList() {
   else if (activeCat === "Eigene") list = state.custom;
   else if (activeCat === "Alle") list = allFoods();
   else list = FOODS.filter(f => f.cat === activeCat);
-  if (words.length) list = allFoods().filter(f => words.every(w => fold(f.name).includes(w)));
+  if (words.length) {
+    list = allFoods().filter(f => words.every(w => fold(f.name).includes(w)));
+    // Whole-word matches first ("ei" → Ei before Eiklar), then names starting with the word
+    const rank = f => {
+      const name = fold(f.name);
+      return name.split(/[^a-z0-9]+/).includes(words[0]) ? 0 : name.startsWith(words[0]) ? 1 : 2;
+    };
+    list.sort((a, b) => rank(a) - rank(b));
+  }
 
   $("#food-list").innerHTML = list.length ? list.map(f => `<button class="food" data-food="${esc(f.id)}">
       <span class="n">${esc(f.name)}</span><span class="k">${num(f.kcal)} kcal</span>
@@ -373,7 +401,7 @@ function pickOnline(id) {
   if (!food) return;
   state.custom = [food, ...state.custom.filter(f => f.id !== food.id)];
   save();
-  showAmount(food, defaultAmount(food), pick.slot);
+  showAmount(food, pick.slot);
 }
 
 function renderPlans() {
@@ -400,64 +428,86 @@ function applyPlan(id) {
   toast(`„${plan.name}“ eingetragen`);
 }
 
-function makeEntry(food, amount, slot, id) {
+// amount is in grams/ml (or portions); unit is the household unit it was entered in, if any
+function makeEntry(food, amount, slot, id, unit) {
   const s = scale(food, amount);
+  let amountLabel;
+  if (food.portion) amountLabel = `${num(amount, 2)} × ${food.portion}`;
+  else if (unit && unit.size !== 1) amountLabel = `${num(unit.n, 2)} ${unitText(unit.label, unit.n)} (${num(amount)} ${unitOf(food)})`;
+  else amountLabel = `${num(amount)} ${unitOf(food)}`;
   return {
-    id: id || uid(), foodId: food.id, name: food.name, slot, amount,
-    amountLabel: food.portion ? `${num(amount, 2)} × ${food.portion}` : `${num(amount)} ${unitOf(food)}`,
+    id: id || uid(), foodId: food.id, name: food.name, slot, amount, amountLabel,
+    unit: unit ? { u: unit.label, n: unit.n } : null,
     kcal: s.kcal, p: s.p, kh: s.kh, f: s.f,
     // Per-unit values, so the entry stays editable even if the food is removed later
-    base: { portion: food.portion || null, ml: !!food.ml, piece: food.piece, kcal: food.kcal, p: food.p, kh: food.kh, f: food.f },
+    base: { portion: food.portion || null, ml: !!food.ml, piece: food.piece, units: food.units, kcal: food.kcal, p: food.p, kh: food.kh, f: food.f },
   };
 }
 
-function showAmount(food, amount, slot, entryId) {
-  pick = { food, amount, slot, entryId };
+function showAmount(food, slot, entryId, init = defaultPick(food)) {
+  const units = unitsOf(food);
+  const unit = units.find(u => u.label === init.u) || units[0];
+  pick = { food, slot, entryId, units, unit };
   $("#add-tabs").hidden = true;
   $("#sheet-title").textContent = entryId ? "Bearbeiten" : "Menge";
   showTab("amount");
   $("#pick-name").textContent = food.name;
   $("#pick-base").textContent = `${baseLabel(food)}: ${num(food.kcal)} kcal · ${num(food.p, 1)} g Protein`;
-  $("#amount-unit").textContent = food.portion ? `× ${food.portion}` : unitOf(food);
-  $("#amount").value = amount;
-  $("#amount").step = food.portion ? "0.25" : "1";
-  let quick;
-  if (food.portion) quick = [0.5, 1, 1.5, 2].map(q => [q, num(q, 2) + "×"]);
-  else if (food.ml) quick = [100, 200, 250, 330, 500].map(q => [q, q + " ml"]);
-  else {
-    quick = [50, 100, 150, 200].map(q => [q, q + " g"]);
-    if (food.piece) {
-      const [label, g] = food.piece;
-      const plural = { Scheibe: "Scheiben", Hälfte: "Hälften", Zehe: "Zehen", Kugel: "Kugeln", Keks: "Kekse" }[label] || label;
-      quick = [1, 2, 3].map(n => [n * g, `${n} ${n > 1 ? plural : label} (${n * g} g)`]).concat(quick);
-    }
-  }
-  $("#quick-amounts").innerHTML = quick.map(([v, l]) => `<button type="button" class="chip" data-amount="${v}">${l}</button>`).join("");
+  $("#amount-unit").innerHTML = units.map(u =>
+    `<option value="${esc(u.label)}" ${u === unit ? "selected" : ""}>${esc(u.label)}${u.size !== 1 ? ` (${num(u.size)} ${unitOf(food)})` : ""}</option>`).join("");
+  $("#amount-unit").disabled = units.length === 1;
+  $("#amount").value = init.n;
   $("#slot").innerHTML = SLOTS.map(s => `<option value="${s.id}" ${s.id === slot ? "selected" : ""}>${s.name}</option>`).join("");
   $("#amount-submit").textContent = entryId ? "Speichern" : "Hinzufügen";
   $("#entry-delete").hidden = !entryId;
+  renderQuick();
   updatePreview();
 }
 
+function renderQuick() {
+  const { unit, food } = pick;
+  let quick;
+  if (unit.size !== 1 || food.portion) quick = food.portion ? [0.5, 1, 1.5, 2] : [0.5, 1, 2, 3];
+  else quick = food.ml ? [100, 200, 250, 330, 500] : [50, 100, 150, 200, 250];
+  $("#amount").step = unit.size !== 1 || food.portion ? "0.5" : "1";
+  $("#quick-amounts").innerHTML = quick.map(q =>
+    `<button type="button" class="chip" data-amount="${q}">${num(q, 1)} ${esc(unitText(unit.label, q))}</button>`).join("");
+}
+
+// Switching unit keeps the same real amount, e.g. 120 g egg becomes 2 Stück
+function changeUnit() {
+  const next = pick.units.find(u => u.label === $("#amount-unit").value);
+  // Convert from the exact amount, so switching back and forth never drifts
+  pick.exact = pick.exact ?? baseAmount();
+  const n = pick.exact / next.size;
+  $("#amount").value = next.size === 1 ? Math.round(n) : Math.round(n * 100) / 100;
+  pick.unit = next;
+  renderQuick();
+  updatePreview();
+}
+
+function baseAmount() {
+  return (parseFloat($("#amount").value) || 0) * pick.unit.size;
+}
+
 function updatePreview() {
-  const amt = parseFloat($("#amount").value) || 0;
-  const s = scale(pick.food, amt);
+  const s = scale(pick.food, baseAmount());
   $("#pick-preview").innerHTML = [["kcal", s.kcal, ""], ["Protein", s.p, " g"], ["KH", s.kh, " g"], ["Fett", s.f, " g"]]
     .map(([l, v, u]) => `<div><b>${num(v, l === "kcal" ? 0 : 1)}${u}</b><small>${l}</small></div>`).join("");
 }
 
 function submitAmount(e) {
   e.preventDefault();
-  const amt = parseFloat($("#amount").value);
-  if (!(amt > 0)) return toast("Bitte eine Menge eingeben");
+  const n = parseFloat($("#amount").value);
+  if (!(n > 0)) return toast("Bitte eine Menge eingeben");
   const slot = $("#slot").value;
   const d = ensureDay();
-  const entry = makeEntry(pick.food, amt, slot, pick.entryId);
+  const entry = makeEntry(pick.food, n * pick.unit.size, slot, pick.entryId, { label: pick.unit.label, size: pick.unit.size, n });
   if (pick.entryId) d.entries = d.entries.map(x => x.id === pick.entryId ? entry : x);
   else d.entries.push(entry);
   state.recent = [pick.food.id, ...state.recent.filter(id => id !== pick.food.id)].slice(0, 20);
   // Remember the amount per food as the default for next time
-  state.amounts[pick.food.id] = amt;
+  state.amounts[pick.food.id] = { u: pick.unit.label, n };
   save();
   const edited = !!pick.entryId;
   closeSheet();
@@ -470,7 +520,7 @@ function editEntry(id) {
   if (!e) return;
   const food = foodById(e.foodId) || { id: e.foodId, name: e.name, ...e.base };
   $("#sheet").hidden = false;
-  showAmount(food, e.amount, e.slot, id);
+  showAmount(food, e.slot, id, e.unit || { u: food.portion || unitOf(food), n: e.amount });
 }
 
 function deleteEntry() {
@@ -498,7 +548,7 @@ function submitManual(e) {
   if (!food.name) return;
   if (f.save.checked) { state.custom.unshift(food); save(); }
   e.target.reset();
-  showAmount(food, food.portion ? 1 : 100, pick.slot);
+  showAmount(food, pick.slot);
 }
 
 // ---------- Barcode scanning (ZXing + Open Food Facts) ----------
@@ -547,7 +597,7 @@ async function lookupBarcode(code) {
   code = String(code).replace(/\D/g, "");
   if (code.length < 6) return toast("Ungültiger Barcode");
   const known = state.custom.find(f => f.barcode === code);
-  if (known) return showAmount(known, defaultAmount(known), pick.slot);
+  if (known) return showAmount(known, pick.slot);
   $("#scan-status").textContent = "Suche Produkt …";
   try {
     const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,product_name_de,brands,nutriments`);
@@ -556,7 +606,7 @@ async function lookupBarcode(code) {
     if (!food) throw new Error("not found");
     state.custom = [food, ...state.custom.filter(f => f.barcode !== code)];
     save();
-    showAmount(food, 100, pick.slot);
+    showAmount(food, pick.slot);
   } catch (e) {
     toast("Produkt nicht gefunden, bitte Werte von der Packung eintragen");
     showTab("manual");
@@ -648,11 +698,11 @@ document.addEventListener("click", e => {
   else if (b.dataset.entry) editEntry(b.dataset.entry);
   else if (b.dataset.tab && b.closest("#add-tabs")) showTab(b.dataset.tab);
   else if (b.dataset.cat) { activeCat = b.dataset.cat; $("#search").value = ""; renderFoodList(); }
-  else if (b.dataset.food) { const f = foodById(b.dataset.food); showAmount(f, defaultAmount(f), pick.slot); }
+  else if (b.dataset.food) { const f = foodById(b.dataset.food); showAmount(f, pick.slot); }
   else if (b.dataset.online) pickOnline(b.dataset.online);
   else if (b.hasAttribute("data-online-search")) searchOnline();
   else if (b.dataset.plan) applyPlan(b.dataset.plan);
-  else if (b.dataset.amount) { $("#amount").value = b.dataset.amount; updatePreview(); }
+  else if (b.dataset.amount) { $("#amount").value = b.dataset.amount; pick.exact = null; updatePreview(); }
   else if (b.dataset.basis) { manualBasis = b.dataset.basis; $$("#manual-basis button").forEach(x => x.classList.toggle("active", x === b)); }
 });
 
@@ -664,7 +714,8 @@ $("#search").addEventListener("input", renderFoodList);
 $("#search").addEventListener("keydown", e => {
   if (e.key === "Enter" && $("#search").value.trim().length >= 3) { e.preventDefault(); searchOnline(); }
 });
-$("#amount").addEventListener("input", updatePreview);
+$("#amount").addEventListener("input", () => { pick.exact = null; updatePreview(); });
+$("#amount-unit").addEventListener("change", changeUnit);
 $("#amount-form").addEventListener("submit", submitAmount);
 $("#entry-delete").addEventListener("click", deleteEntry);
 $("#manual-form").addEventListener("submit", submitManual);
@@ -727,6 +778,42 @@ if (matchMedia("(display-mode: standalone)").matches) $("#install-card").hidden 
 if ("serviceWorker" in navigator && location.protocol === "https:") {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }
+
+// ---------- Keeping data safe ----------
+
+// Ask the browser not to clear our storage under pressure (granted automatically for installed apps)
+navigator.storage?.persist?.().catch(() => {});
+
+// In-app browsers (Instagram, TikTok …) and plain browser tabs on iPhone can lose local data.
+// Point people to the home screen version, where it stays put.
+function storageHint() {
+  if (matchMedia("(display-mode: standalone)").matches || navigator.standalone) return null;
+  const ua = navigator.userAgent;
+  if (/Instagram|FBAN|FBAV|FB_IAB|TikTok|musical_ly|BytedanceWebview|Snapchat|Line\//i.test(ua)) return {
+    title: "Du bist im App-Browser",
+    text: "Hier können deine Einträge verloren gehen. Tippe oben rechts auf „…“ → „Im Browser öffnen“ und füge die App dann zum Home-Bildschirm hinzu.",
+  };
+  if (/iPhone|iPad|iPod/.test(ua)) return {
+    title: "Tipp: Auf den Home-Bildschirm",
+    text: "Damit deine Einträge sicher gespeichert bleiben, öffne diese Seite in Safari, tippe auf „Teilen“ und dann auf „Zum Home-Bildschirm“. Starte die App danach immer über das neue Symbol.",
+  };
+  return null;
+}
+
+function showStorageHint() {
+  const hint = storageHint();
+  let dismissed = false;
+  try { dismissed = localStorage.getItem(STORE_KEY + "-hint") === "1"; } catch (e) { /* ignore */ }
+  if (!hint || dismissed) return;
+  $("#storage-hint-title").textContent = hint.title;
+  $("#storage-hint-text").textContent = hint.text;
+  $("#storage-hint").hidden = false;
+}
+$("#storage-hint-close").addEventListener("click", () => {
+  $("#storage-hint").hidden = true;
+  try { localStorage.setItem(STORE_KEY + "-hint", "1"); } catch (e) { /* ignore */ }
+});
+showStorageHint();
 
 // ---------- Start ----------
 

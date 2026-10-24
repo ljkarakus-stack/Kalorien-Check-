@@ -26,6 +26,13 @@
 <main>
   <!-- Heute -->
   <section id="view-today" class="view">
+    <div class="card notice" id="storage-hint" hidden>
+      <b id="storage-hint-title"></b>
+      <p id="storage-hint-text"></p>
+      <div class="btn-row">
+        <button class="btn ghost" id="storage-hint-close">Verstanden</button>
+      </div>
+    </div>
     <div class="daynav">
       <button class="icon-btn" data-day="-1" aria-label="Vorheriger Tag">‹</button>
       <div class="daylabel"><span id="day-name"></span><small id="day-date"></small></div>
@@ -194,7 +201,12 @@
         <b id="pick-name"></b>
         <small id="pick-base"></small>
       </div>
-      <label>Menge <span><input type="number" id="amount" min="0" step="any" inputmode="decimal" required> <em id="amount-unit">g</em></span></label>
+      <label>Menge
+        <div class="amount-row">
+          <input type="number" id="amount" min="0" step="any" inputmode="decimal" required aria-label="Menge">
+          <select id="amount-unit" aria-label="Einheit"></select>
+        </div>
+      </label>
       <div class="chips" id="quick-amounts"></div>
       <label>Mahlzeit
         <select id="slot"></select>

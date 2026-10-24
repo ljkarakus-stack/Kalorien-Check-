@@ -143,6 +143,8 @@ input:focus, select:focus { outline: none; border-color: var(--bordeaux); }
 .add-line { margin-top: 8px; width: 100%; min-height: 44px; border: 2px dashed var(--rosa-mittel); border-radius: 14px; background: none; color: var(--bordeaux); font-weight: 700; cursor: pointer; }
 .empty { color: var(--muted); font-size: 15px; margin: 4px 0 0; }
 
+.notice { background: var(--rosa); }
+.notice p { margin: 6px 0 0; }
 .insta { display: flex; flex-direction: column; align-items: center; text-decoration: none; background: var(--rosa); text-align: center; }
 .insta .script { font-size: 26px; }
 
@@ -214,6 +216,8 @@ input:focus, select:focus { outline: none; border-color: var(--bordeaux); }
 .inline-form input { flex: 1; }
 
 .pick { display: flex; flex-direction: column; }
+.amount-row { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; }
+.amount-row select:disabled { opacity: 1; background: var(--rosa-hell); }
 .pick b { font-size: 22px; }
 .pick small { color: var(--muted); }
 .preview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; background: var(--weiss); border-radius: 18px; padding: 12px; box-shadow: var(--shadow); text-align: center; }
@@ -231,8 +235,8 @@ input:focus, select:focus { outline: none; border-color: var(--bordeaux); }
 .chart text { font-family: "Baloo 2", system-ui, sans-serif; fill: var(--muted); font-size: 12px; }
 
 .toast {
-  position: fixed; left: 50%; bottom: calc(var(--tab-h) + 20px + env(safe-area-inset-bottom)); z-index: 30;
-  transform: translateX(-50%) translateY(20px); opacity: 0; pointer-events: none;
+  position: fixed; left: 50%; top: calc(12px + env(safe-area-inset-top)); z-index: 30;
+  transform: translateX(-50%) translateY(-20px); opacity: 0; pointer-events: none;
   background: var(--bordeaux); color: var(--weiss); padding: 10px 20px; border-radius: 18px; font-weight: 700;
   transition: opacity .2s, transform .2s; max-width: calc(100% - 32px); text-align: center;
 }

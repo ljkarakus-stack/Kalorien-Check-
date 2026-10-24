@@ -1,5 +1,5 @@
 // Offline cache for the app shell.
-const VERSION = "kc-v3";
+const VERSION = "kc-v4";
 const SHELL = [
   "./", "index.html", "app.css", "app.js", "foods.js", "manifest.webmanifest",
   "fonts/Baloo2.ttf", "fonts/CaveatBrush.ttf", "vendor/zxing-browser.min.js",
