@@ -112,23 +112,6 @@
   <!-- Profil -->
   <section id="view-profile" class="view" hidden>
     <h2 class="brush dark">Profil &amp; Ziele</h2>
-    <div class="card" id="account-card" hidden>
-      <h3><span class="emoji">🔐</span> Dein Konto</h3>
-      <div id="account-out">
-        <p class="muted">Mit Konto sind deine Einträge sicher gespeichert und auf all deinen Geräten da.</p>
-        <div class="btn-row">
-          <button class="btn" data-auth="login">Anmelden</button>
-          <button class="btn ghost" data-auth="signup">Konto erstellen</button>
-        </div>
-      </div>
-      <div id="account-in" hidden>
-        <p>Angemeldet als <b id="account-email"></b></p>
-        <p class="muted small" id="sync-status"></p>
-        <div class="btn-row">
-          <button class="btn ghost" id="logout">Abmelden</button>
-        </div>
-        <button class="btn danger" id="delete-account">Konto löschen</button>
-      </div>
     </div>
     <form class="card form" id="goals-form">
       <h3>Deine Tagesziele</h3>
@@ -157,7 +140,7 @@
 
     <div class="card">
       <h3><span class="emoji">🗑️</span> Daten löschen</h3>
-      <p class="muted">Löscht alle Einträge, Ziele und eigenen Lebensmittel. Wenn du angemeldet bist, auch in deinem Konto.</p>
+      <p class="muted">Löscht alle Einträge, Ziele und eigenen Lebensmittel auf diesem Gerät.</p>
       <button class="btn danger" id="reset">Alle Daten löschen</button>
     </div>
 
@@ -281,27 +264,6 @@
       <div class="preview" id="onboard-preview" hidden></div>
       <button class="btn">Ziel berechnen</button>
       <button type="button" class="btn ghost" id="onboard-skip">Ziele selbst eintragen</button>
-      <p class="center" id="onboard-login" hidden>Schon ein Konto? <button type="button" class="link" data-auth="login">Anmelden</button></p>
-    </form>
-  </div>
-</div>
-
-<!-- Login / sign-up -->
-<div class="sheet-backdrop" id="auth" hidden>
-  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-    <div class="sheet-head">
-      <h2 id="auth-title" class="brush dark">Anmelden</h2>
-      <button class="icon-btn" id="auth-close" aria-label="Schließen">✕</button>
-    </div>
-    <form class="form" id="auth-form">
-      <label id="auth-email-row">E-Mail <input type="email" name="email" autocomplete="email" inputmode="email"></label>
-      <label id="auth-pass-row">Passwort <input type="password" name="password" minlength="8" autocomplete="current-password"></label>
-      <label class="check" id="auth-consent-row"><input type="checkbox" name="consent">
-        <span>Ich willige ein, dass meine Angaben zu Ernährung, Gewicht und Zielen in meinem Konto gespeichert werden. Das sind Gesundheitsdaten. Ich kann die Einwilligung jederzeit widerrufen, indem ich mein Konto lösche. Mehr in der <a href="datenschutz.html" target="_blank">Datenschutzerklärung</a>.</span>
-      </label>
-      <p class="auth-msg" id="auth-msg" role="alert"></p>
-      <button class="btn" id="auth-submit">Anmelden</button>
-      <p class="center muted" id="auth-switch"></p>
     </form>
   </div>
 </div>
@@ -309,9 +271,8 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="config.js"></script>
-<script src="vendor/supabase.min.js"></script>
 <script src="foods.js"></script>
 <script src="app.js"></script>
-<script src="account.js"></script>
+<script src="feedback.js"></script>
 </body>
 </html>

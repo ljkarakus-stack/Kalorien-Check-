@@ -1,5 +1,5 @@
-// Account settings. Leave empty to run the app without login (everything stays on the device).
-// supabaseKey is the public "publishable" (anon) key; access is protected by row level security.
+// Anonymous feedback goes to a Supabase table (see supabase-setup.sql).
+// Leave empty to hide the feedback card. supabaseKey is the public "publishable" key; the table only accepts inserts.
 window.KC_CONFIG = {
   supabaseUrl: "",
   supabaseKey: "",
