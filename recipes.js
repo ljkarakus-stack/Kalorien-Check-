@@ -13,9 +13,8 @@ let draft = null;   // recipe being edited: { id?, ings: [{ food, g }] }
 // Nutrition snapshot of a food (per 100 g / ml, or per portion)
 function snapshot(food) {
   const round = v => Math.round(v * 100) / 100;
-  const m = food.m ? Object.fromEntries(Object.entries(food.m).map(([k, v]) => [k, round(v)])) : undefined;
   return { id: food.id, name: food.name, portion: food.portion || undefined, ml: food.ml || undefined,
-    kcal: round(food.kcal), p: round(food.p), kh: round(food.kh), f: round(food.f), m };
+    kcal: round(food.kcal), p: round(food.p), kh: round(food.kh), f: round(food.f) };
 }
 
 function recipeTotals(r) {
@@ -25,9 +24,8 @@ function recipeTotals(r) {
 // One portion of a recipe as a loggable food
 function recipeFood(r) {
   const t = recipeTotals(r), n = r.portions || 1;
-  const m = Object.fromEntries(Object.entries(t.m).map(([k, v]) => [k, v / n]));
   return { id: "rez-" + r.id, name: r.title, cat: "Rezepte", portion: "Portion",
-    kcal: t.kcal / n, p: t.p / n, kh: t.kh / n, f: t.f / n, m: Object.keys(m).length ? m : null };
+    kcal: t.kcal / n, p: t.p / n, kh: t.kh / n, f: t.f / n };
 }
 
 function ingLabel(i) {

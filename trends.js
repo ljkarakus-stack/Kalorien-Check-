@@ -1,6 +1,6 @@
 "use strict";
 
-// Trends: balance, all metrics side by side, nutrients, meal times and cycle patterns.
+// Trends: balance, all metrics side by side, meal times and cycle patterns.
 
 let range = 7;
 let metricKey = "kcal";
@@ -136,65 +136,6 @@ function renderChart() {
   $("#t-chart-note").textContent = note;
 }
 
-// ---------- Nutrients ----------
-
-// Average share of the reference values over tracked days, plus how much of it is covered by data
-function nutrientStats(keys) {
-  const tracked = trackedKeys(keys);
-  if (!tracked.length) return null;
-  const refs = nutrientRefs();
-  let kcalAll = 0, kcalWithData = 0;
-  const sums = Object.fromEntries(NUTRIENTS.map(n => [n.key, 0]));
-  for (const k of tracked) for (const e of day(k).entries) {
-    kcalAll += e.kcal;
-    if (e.m) { kcalWithData += e.kcal; for (const n of NUTRIENTS) sums[n.key] += e.m[n.key] || 0; }
-  }
-  return {
-    days: tracked.length,
-    coverage: kcalAll ? kcalWithData / kcalAll : 0,
-    list: NUTRIENTS.map(n => {
-      const perDay = sums[n.key] / tracked.length;
-      return { ...n, perDay, pct: perDay / refs[n.key] * 100, ref: refs[n.key] };
-    }),
-  };
-}
-
-function nutrientBars(list) {
-  return list.map(n => `<div class="nut">
-    <div class="nut-top"><span>${n.name}</span><span><b>${num(n.pct)} %</b> <small>${num(n.perDay, n.d)} / ${num(n.ref)} ${n.unit}</small></span></div>
-    <div class="bar"><i class="${n.pct >= 100 ? "full" : n.pct < 70 ? "low" : ""}" style="width:${Math.min(100, n.pct)}%"></i></div>
-  </div>`).join("");
-}
-
-function renderNutrients() {
-  const s = nutrientStats(rangeKeys(range));
-  if (!s) {
-    $("#t-nutrients").innerHTML = `<h3><span class="emoji">🥦</span> Nährstoffe</h3><p class="muted">Sobald du ein paar Tage eingetragen hast, siehst du hier, wie gut du deine Tagesreferenzwerte im Schnitt erreichst.</p>`;
-    return;
-  }
-  const low = s.list.filter(n => n.pct < 70);
-  $("#t-nutrients").innerHTML = `
-    <h3><span class="emoji">🥦</span> Nährstoffe · Ø pro Tag</h3>
-    <p class="muted small">In % der Tagesreferenzwerte (DGE) für Erwachsene, über ${s.days} getrackte Tage.</p>
-    ${nutrientBars(s.list)}
-    ${s.coverage < 0.9 ? `<p class="hint">Für ${num((1 - s.coverage) * 100)} % deiner Kalorien gibt es keine Nährstoffdaten (z. B. eigene Lebensmittel). Die echten Werte liegen also eher höher.</p>` : ""}
-    ${low.length ? `<h4>Mögliche Lücken</h4>${low.map(n => `<div class="gap"><b>${n.name}: im Schnitt ${num(n.pct)} %</b><br><span>Gute Quellen: ${NUTRIENT_SOURCES[n.key]}</span></div>`).join("")}` : `<p class="hint good">Im Schnitt erreichst du alle Nährstoffe zu mindestens 70 %. Stark!</p>`}
-    <p class="muted small">Richtwerte zur Orientierung, keine Diagnose. Wenn du einen Mangel vermutest, sprich mit deiner Ärztin oder deinem Arzt.</p>`;
-}
-
-// Today's nutrient progress, shown on the Heute view
-function renderTodayNutrients() {
-  const refs = nutrientRefs();
-  const entries = day().entries;
-  const sums = Object.fromEntries(NUTRIENTS.map(n => [n.key, 0]));
-  for (const e of entries) if (e.m) for (const n of NUTRIENTS) sums[n.key] += e.m[n.key] || 0;
-  const list = NUTRIENTS.map(n => ({ ...n, perDay: sums[n.key], pct: sums[n.key] / refs[n.key] * 100, ref: refs[n.key] }));
-  const missing = entries.filter(e => !e.m).length;
-  $("#today-nutrients").innerHTML = `<summary><span class="emoji">🥦</span> Nährstoffe heute</summary>
-    ${entries.length ? nutrientBars(list) : `<p class="muted">Noch nichts eingetragen.</p>`}
-    ${missing ? `<p class="muted small">${missing} ${missing === 1 ? "Eintrag hat" : "Einträge haben"} keine Nährstoffdaten.</p>` : ""}`;
-}
-
 // ---------- Meal times ----------
 
 const toMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
@@ -321,7 +262,6 @@ function renderTrends() {
   renderTiles();
   renderChart();
   fillMeasures();
-  renderNutrients();
   renderTimes();
   renderCyclePatterns();
   if (typeof renderShareCard === "function") renderShareCard();

@@ -85,8 +85,7 @@ function foodById(id) {
 // Nutrients for an amount: grams for per-100 g foods, count for portion foods
 function scale(food, amount) {
   const factor = food.portion ? amount : amount / 100;
-  const m = food.m ? Object.fromEntries(Object.entries(food.m).map(([k, v]) => [k, v * factor])) : null;
-  return { kcal: food.kcal * factor, p: food.p * factor, kh: food.kh * factor, f: food.f * factor, m };
+  return { kcal: food.kcal * factor, p: food.p * factor, kh: food.kh * factor, f: food.f * factor };
 }
 function unitOf(food) {
   return food.ml ? "ml" : "g";
@@ -171,7 +170,6 @@ function renderToday() {
   ring.classList.toggle("over", left < 0);
   renderDeficit(left);
   renderJournal();
-  renderTodayNutrients();
 
   const macros = [
     ["💪", "Protein", t.p, g.p],
@@ -346,7 +344,6 @@ function offFood(product, code) {
   return {
     id: "c-" + code, name, cat: "Eigene", barcode: code, portion: null,
     kcal: +n["energy-kcal_100g"] || 0, p: +n.proteins_100g || 0, kh: +n.carbohydrates_100g || 0, f: +n.fat_100g || 0,
-    m: offMicros(n),
   };
 }
 
@@ -398,10 +395,9 @@ function pickOnline(id) {
 const ideaById = id => IDEAS.find(i => i.id === id);
 
 function addUp(list) {
-  const t = { kcal: 0, p: 0, kh: 0, f: 0, m: {} };
+  const t = { kcal: 0, p: 0, kh: 0, f: 0 };
   for (const x of list) {
     t.kcal += x.kcal; t.p += x.p; t.kh += x.kh; t.f += x.f;
-    for (const [k, v] of Object.entries(x.m || {})) t.m[k] = (t.m[k] || 0) + v;
   }
   return t;
 }
@@ -462,9 +458,9 @@ function makeEntry(food, amount, slot, id, unit, time = SLOT_TIMES[slot]) {
   return {
     id: id || uid(), foodId: food.id, name: food.name, slot, time, amount, amountLabel,
     unit: unit ? { u: unit.label, n: unit.n } : null,
-    kcal: s.kcal, p: s.p, kh: s.kh, f: s.f, m: s.m,
+    kcal: s.kcal, p: s.p, kh: s.kh, f: s.f,
     // Per-unit values, so the entry stays editable even if the food is removed later
-    base: { portion: food.portion || null, ml: !!food.ml, piece: food.piece, units: food.units, kcal: food.kcal, p: food.p, kh: food.kh, f: food.f, m: food.m || null },
+    base: { portion: food.portion || null, ml: !!food.ml, piece: food.piece, units: food.units, kcal: food.kcal, p: food.p, kh: food.kh, f: food.f },
   };
 }
 
@@ -572,17 +568,11 @@ function submitManual(e) {
     kcal: +f.kcal.value || 0, p: +f.p.value || 0, kh: +f.kh.value || 0, f: +f.f.value || 0,
     barcode: f.barcode.value || undefined,
   };
-  const m = {};
-  for (const n of NUTRIENTS) { const v = f["m_" + n.key].value; if (v !== "") m[n.key] = Math.max(0, +v || 0); }
-  if (Object.keys(m).length) food.m = m;
   if (!food.name) return;
   if (f.save.checked) { state.custom.unshift(food); save(); }
   e.target.reset();
   showAmount(food, pick.slot);
 }
-
-$("#manual-micros").innerHTML = NUTRIENTS.map(n =>
-  `<label>${n.name} (${n.unit}) <input name="m_${n.key}" type="number" step="any" min="0" inputmode="decimal"></label>`).join("");
 
 // ---------- Barcode scanning (ZXing + Open Food Facts) ----------
 
