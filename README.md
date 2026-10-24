@@ -4,9 +4,13 @@ Kalorien, Protein, Kohlenhydrate, Fett, Wasser und Gewicht einfach tracken – m
 
 - Tagesziel-Rechner, frei anpassbar
 - Lebensmittel-Liste, fertige Tagespläne, manuelle Eingabe und Barcode-Scanner (Daten: Open Food Facts, ODbL)
-- Wochenübersicht und Gewichtsverlauf
+- Durchschnittliches Kaloriendefizit über 7 und 30 Tage, Uhrzeit pro Mahlzeit
+- Trends über 7/30/90 Tage: Kalorien, Makros, Wasser, Gewicht, Körpermaße, Befinden – mit Zielwerten
+- 10 Mikronährstoffe in % der DGE-Referenzwerte mit Hinweisen auf mögliche Lücken
+- Essenszeiten-Auswertung, Befindens-Tagebuch und optionales Zyklus-Tracking mit Mustern
+- Eigene Rezepte (durchsuchbar, nach Kategorien), Rezepte und Challenges per Link teilen, Wochenbild
 - Installierbar als App, funktioniert offline
-- Alle Daten bleiben auf dem eigenen Gerät, Export/Import als Datei
+- Ohne Konto: alle Daten bleiben auf dem eigenen Gerät; anonymes Feedback optional über Supabase
 
 Alle Nährwerte sind Richtwerte. Die App ersetzt keine ärztliche oder ernährungsfachliche Beratung.
 

@@ -54,9 +54,12 @@
         <div class="sum-row"><span class="emoji">🔥</span><span>Gegessen</span><b id="kcal-eaten"></b></div>
         <div class="sum-row"><span class="emoji">🎯</span><span>Ziel</span><b id="kcal-goal"></b></div>
       </div>
+      <div class="avg-deficit" id="avg-deficit"></div>
     </div>
 
     <div class="card macros" id="macros"></div>
+
+    <details class="card nutrients-today" id="today-nutrients"></details>
 
     <div class="card water">
       <div class="water-head">
@@ -66,6 +69,8 @@
       <div class="glasses" id="glasses"></div>
     </div>
 
+    <div class="card journal" id="journal"></div>
+
     <div id="meals"></div>
 
     <a class="card insta" href="https://www.instagram.com/jamileo__/" target="_blank" rel="noopener">
@@ -74,35 +79,64 @@
     </a>
   </section>
 
-  <!-- Woche -->
+  <!-- Trends -->
   <section id="view-week" class="view" hidden>
-    <h2 class="brush dark">Deine Woche</h2>
+    <h2 class="brush dark">Trends</h2>
+    <div class="seg" id="range-seg">
+      <button data-range="7" class="active">7 Tage</button>
+      <button data-range="30">30 Tage</button>
+      <button data-range="90">90 Tage</button>
+    </div>
+    <div class="card" id="t-balance"></div>
     <div class="card">
-      <h3>Kalorien</h3>
-      <div class="chart" id="chart-kcal"></div>
-      <p class="muted" id="avg-kcal"></p>
+      <h3>Auf einen Blick</h3>
+      <p class="muted small">Tippe auf einen Wert, um den Verlauf zu sehen.</p>
+      <div class="tiles" id="t-tiles"></div>
     </div>
     <div class="card">
-      <h3>Protein</h3>
-      <div class="chart" id="chart-prot"></div>
-      <p class="muted" id="avg-prot"></p>
+      <h3 id="t-chart-title"></h3>
+      <div class="chart" id="t-chart"></div>
+      <p class="muted small" id="t-chart-note"></p>
     </div>
-    <div class="card">
-      <h3>Gewicht</h3>
-      <form class="inline-form" id="weight-form">
-        <input type="number" step="0.1" min="20" max="400" inputmode="decimal" id="weight-input" placeholder="Gewicht heute" required>
-        <span>kg</span>
-        <button class="btn">Speichern</button>
-      </form>
-      <div class="chart" id="chart-weight"></div>
-    </div>
+    <form class="card form" id="measure-form">
+      <h3><span class="emoji">📏</span> Messwerte heute</h3>
+      <div class="grid3">
+        <label>Gewicht <span><input name="weight" type="number" step="0.1" min="20" max="400" inputmode="decimal"> kg</span></label>
+        <label>Taille <span><input name="waist" type="number" step="0.5" min="30" max="250" inputmode="decimal"> cm</span></label>
+        <label>Hüfte <span><input name="hip" type="number" step="0.5" min="30" max="250" inputmode="decimal"> cm</span></label>
+      </div>
+      <button class="btn">Speichern</button>
+    </form>
+    <div class="card" id="t-nutrients"></div>
+    <div class="card" id="t-times"></div>
+    <div class="card" id="t-cycle"></div>
+    <div class="card" id="t-share"></div>
   </section>
 
   <!-- Ideen -->
   <section id="view-ideas" class="view" hidden>
-    <h2 class="brush dark">Ideen</h2>
-    <p class="script lead">Nachgekocht? Mit einem Tipp eintragen!</p>
-    <div class="ideas" id="ideas-page"></div>
+    <h2 class="brush dark">Rezepte</h2>
+    <div class="seg" id="recipe-seg">
+      <button data-rtab="mine" class="active">Meine Rezepte</button>
+      <button data-rtab="ideas">Ideen von jamileo</button>
+    </div>
+    <div id="mine-pane">
+      <input type="search" id="recipe-search" placeholder="Eigene Rezepte durchsuchen …" autocomplete="off">
+      <div class="chips" id="recipe-cats"></div>
+      <div class="ideas" id="recipe-list"></div>
+      <button class="btn" id="recipe-new">+ Neues Rezept</button>
+      <details class="card paste-link">
+        <summary>Rezept-Link von Freundin einfügen</summary>
+        <form class="inline-form" id="paste-form">
+          <input id="paste-input" placeholder="Link hier einfügen" autocomplete="off">
+          <button class="btn">Übernehmen</button>
+        </form>
+      </details>
+    </div>
+    <div id="ideas-pane" hidden>
+      <p class="script lead">Nachgekocht? Mit einem Tipp eintragen!</p>
+      <div class="ideas" id="ideas-page"></div>
+    </div>
     <a class="card insta" href="https://www.instagram.com/jamileo__/" target="_blank" rel="noopener">
       <span class="script">Neue Ideen jede Woche</span>
       <b>@jamileo__ auf Instagram ›</b>
@@ -122,6 +156,14 @@
       <label>Wasser <span><input type="number" name="water" min="0" max="8000" step="250" inputmode="numeric" required> ml</span></label>
       <button class="btn">Ziele speichern</button>
       <button type="button" class="btn ghost" id="recalc">Neu berechnen lassen</button>
+    </form>
+
+    <form class="card form" id="settings-form">
+      <h3><span class="emoji">⚙️</span> Persönliches</h3>
+      <label>Zielgewicht <span><input type="number" name="goalWeight" step="0.1" min="30" max="300" inputmode="decimal" placeholder="optional"> kg</span></label>
+      <label class="check"><input type="checkbox" name="cycle"> Zyklus mittracken</label>
+      <p class="muted small">Mit Zyklus-Tracking kannst du deine Periode eintragen. Die App schätzt daraus deine Zyklusphase und zeigt dir nach ein paar Monaten Muster bei Hunger, Energie und Gewicht. Alles bleibt nur auf deinem Gerät. Keine medizinische Auswertung und keine Verhütungsmethode.</p>
+      <button class="btn">Speichern</button>
     </form>
 
     <div class="card" id="install-card">
@@ -151,9 +193,9 @@
 
 <nav class="tabs">
   <button data-view="today" class="active"><span class="emoji">🍽️</span>Heute</button>
-  <button data-view="ideas"><span class="emoji">💡</span>Ideen</button>
+  <button data-view="ideas"><span class="emoji">📖</span>Rezepte</button>
   <button class="add-fab" id="fab" aria-label="Essen hinzufügen">+</button>
-  <button data-view="week"><span class="emoji">📊</span>Woche</button>
+  <button data-view="week"><span class="emoji">📊</span>Trends</button>
   <button data-view="profile"><span class="emoji">👤</span>Profil</button>
 </nav>
 
@@ -167,7 +209,7 @@
 
     <div class="seg" id="add-tabs">
       <button data-tab="search" class="active">Liste</button>
-      <button data-tab="ideas">Ideen</button>
+      <button data-tab="ideas">Rezepte</button>
       <button data-tab="manual">Manuell</button>
       <button data-tab="scan">Scannen</button>
     </div>
@@ -226,9 +268,14 @@
         </div>
       </label>
       <div class="chips" id="quick-amounts"></div>
-      <label>Mahlzeit
-        <select id="slot"></select>
-      </label>
+      <div class="grid2">
+        <label>Mahlzeit
+          <select id="slot"></select>
+        </label>
+        <label>Uhrzeit
+          <input type="time" id="entry-time">
+        </label>
+      </div>
       <div class="preview" id="pick-preview"></div>
       <button class="btn" id="amount-submit">Hinzufügen</button>
       <button type="button" class="btn danger" id="entry-delete" hidden>Eintrag löschen</button>
@@ -268,11 +315,44 @@
   </div>
 </div>
 
+<!-- Recipe editor -->
+<div class="sheet-backdrop" id="recipe-sheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="recipe-title">
+    <div class="sheet-head">
+      <h2 id="recipe-title" class="brush dark">Neues Rezept</h2>
+      <button class="icon-btn" id="recipe-close" aria-label="Schließen">✕</button>
+    </div>
+    <form class="form" id="recipe-form">
+      <label>Name <input name="title" required maxlength="80" placeholder="z. B. Overnight Oats"></label>
+      <div class="grid2">
+        <label>Kategorie <select name="cat"></select></label>
+        <label>Portionen <input name="portions" type="number" min="1" max="20" step="1" value="1" inputmode="numeric" required></label>
+      </div>
+      <h3>Zutaten</h3>
+      <div id="ing-list"></div>
+      <div class="ing-search">
+        <input type="search" id="ing-search" placeholder="Zutat hinzufügen …" autocomplete="off">
+        <div class="list" id="ing-results"></div>
+      </div>
+      <label>Zubereitung <textarea name="text" rows="3" maxlength="1500" placeholder="optional"></textarea></label>
+      <div class="preview" id="recipe-preview"></div>
+      <button class="btn">Rezept speichern</button>
+      <button type="button" class="btn danger" id="recipe-delete" hidden>Rezept löschen</button>
+    </form>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="config.js"></script>
 <script src="foods.js"></script>
+<script src="nutrients.js"></script>
 <script src="app.js"></script>
+<script src="journal.js"></script>
+<script src="trends.js"></script>
+<script src="recipes.js"></script>
+<script src="share.js"></script>
 <script src="feedback.js"></script>
+<script src="main.js"></script>
 </body>
 </html>

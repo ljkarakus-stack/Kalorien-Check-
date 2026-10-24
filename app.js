@@ -8,11 +8,16 @@ const SLOTS = [
   { id: "snack", name: "Snacks", emoji: "🍎" },
 ];
 const GLASS_ML = 250;
+// Default clock time per meal when logging for another day
+const SLOT_TIMES = { fruehstueck: "08:00", mittag: "12:30", snack: "16:00", abend: "19:00" };
 
 // ---------- State ----------
 
 function blankState() {
-  return { goals: null, profile: null, days: {}, weights: {}, custom: [], recent: [], amounts: {} };
+  return {
+    goals: null, profile: null, days: {}, weights: {}, custom: [], recent: [], amounts: {},
+    journal: {}, measures: {}, settings: {}, recipes: [], challenges: [],
+  };
 }
 
 function load() {
@@ -72,12 +77,16 @@ function allFoods() {
 }
 function foodById(id) {
   const idea = id.startsWith("idee-") && ideaById(id.slice(5));
-  return idea ? ideaFood(idea) : allFoods().find(f => f.id === id);
+  if (idea) return ideaFood(idea);
+  const recipe = id.startsWith("rez-") && (state.recipes || []).find(r => "rez-" + r.id === id);
+  if (recipe) return recipeFood(recipe);
+  return allFoods().find(f => f.id === id);
 }
 // Nutrients for an amount: grams for per-100 g foods, count for portion foods
 function scale(food, amount) {
   const factor = food.portion ? amount : amount / 100;
-  return { kcal: food.kcal * factor, p: food.p * factor, kh: food.kh * factor, f: food.f * factor };
+  const m = food.m ? Object.fromEntries(Object.entries(food.m).map(([k, v]) => [k, v * factor])) : null;
+  return { kcal: food.kcal * factor, p: food.p * factor, kh: food.kh * factor, f: food.f * factor, m };
 }
 function unitOf(food) {
   return food.ml ? "ml" : "g";
@@ -160,6 +169,9 @@ function renderToday() {
   ring.style.strokeDasharray = C;
   ring.style.strokeDashoffset = C * (1 - Math.min(1, t.kcal / g.kcal));
   ring.classList.toggle("over", left < 0);
+  renderDeficit(left);
+  renderJournal();
+  renderTodayNutrients();
 
   const macros = [
     ["💪", "Protein", t.p, g.p],
@@ -181,80 +193,51 @@ function renderToday() {
     `<button class="glass ${i < drunk / GLASS_ML ? "full" : ""}" data-glass="${i}" aria-label="${(i + 1) * GLASS_ML} ml"></button>`).join("");
 
   $("#meals").innerHTML = SLOTS.map(s => {
-    const list = day().entries.filter(e => e.slot === s.id);
+    const list = day().entries.filter(e => e.slot === s.id).sort((a, b) => (a.time || "99").localeCompare(b.time || "99"));
     const kcal = list.reduce((a, e) => a + e.kcal, 0);
     return `<div class="card meal">
       <div class="meal-head"><h3><span class="emoji">${s.emoji}</span> ${s.name}</h3><small>${num(kcal)} kcal</small></div>
       ${list.length ? list.map(e => `<button class="entry" data-entry="${e.id}">
           <span class="n">${esc(e.name)}</span><span class="k">${num(e.kcal)} kcal</span>
-          <span class="d">${esc(e.amountLabel)} · ${num(e.p, 1)} g Protein · ${num(e.kh, 1)} g KH · ${num(e.f, 1)} g Fett</span>
+          <span class="d">${e.time ? `<span class="t">${e.time}</span> · ` : ""}${esc(e.amountLabel)} · ${num(e.p, 1)} g Protein · ${num(e.kh, 1)} g KH · ${num(e.f, 1)} g Fett</span>
         </button>`).join("") : `<p class="empty">Noch nichts eingetragen</p>`}
       <button class="add-line" data-add-slot="${s.id}">+ ${s.name} hinzufügen</button>
     </div>`;
   }).join("");
 }
 
-// ---------- Rendering: Woche ----------
-
-function lastDays(n) {
-  return Array.from({ length: n }, (_, i) => shiftKey(todayKey(), i - n + 1));
+function nowTime() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-function barChart(values, goal, labels, unit) {
-  const W = 340, H = 170, pad = 22, bw = 30;
-  const max = Math.max(goal * 1.25, ...values, 1);
-  const y = v => H - pad - (v / max) * (H - pad - 14);
-  const step = (W - 20) / values.length;
-  const bars = values.map((v, i) => {
-    const x = 10 + i * step + (step - bw) / 2;
-    const over = v > goal * 1.05 && unit === "kcal";
-    return `<rect x="${x}" y="${y(v)}" width="${bw}" height="${Math.max(0, H - pad - y(v))}" rx="8" fill="${over ? "#B4472F" : i === values.length - 1 ? "#6E1A2E" : "#E9A9BA"}"/>
-      <text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${labels[i]}</text>
-      ${v ? `<text x="${x + bw / 2}" y="${y(v) - 4}" text-anchor="middle">${num(v)}</text>` : ""}`;
-  }).join("");
-  const gy = y(goal);
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${unit} der letzten 7 Tage">
-    ${bars}
-    <line x1="6" x2="${W - 6}" y1="${gy}" y2="${gy}" stroke="#6E1A2E" stroke-width="2" stroke-dasharray="6 5"/>
-    <text x="8" y="${gy - 5}" text-anchor="start">Ziel ${num(goal)}</text>
-  </svg>`;
+// Average daily gap to the calorie goal over the last n finished days that have entries.
+// Positive = under the goal (deficit), negative = over.
+function deficitStats(n, endKey = todayKey()) {
+  const keys = Array.from({ length: n }, (_, i) => shiftKey(endKey, -i - 1));
+  const tracked = keys.map(k => totals(k).kcal).filter(k => k > 0);
+  if (!tracked.length) return null;
+  const avg = tracked.reduce((a, k) => a + (state.goals.kcal - k), 0) / tracked.length;
+  return { avg, days: tracked.length, total: avg * tracked.length };
 }
 
-function lineChart(points) {
-  if (points.length < 2) return `<p class="muted">Trag dein Gewicht an mindestens zwei Tagen ein, dann siehst du hier deinen Verlauf.</p>`;
-  const W = 340, H = 160, pad = 26;
-  const vals = points.map(p => p[1]);
-  const min = Math.min(...vals) - 0.5, max = Math.max(...vals) + 0.5;
-  const x = i => pad + i * (W - pad * 2) / (points.length - 1);
-  const y = v => 12 + (1 - (v - min) / (max - min)) * (H - pad - 12);
-  const path = points.map((p, i) => `${i ? "L" : "M"}${x(i)},${y(p[1])}`).join(" ");
-  const first = keyToDate(points[0][0]).toLocaleDateString("de-DE", { day: "numeric", month: "short" });
-  const last = keyToDate(points[points.length - 1][0]).toLocaleDateString("de-DE", { day: "numeric", month: "short" });
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Gewichtsverlauf">
-    <path d="${path}" fill="none" stroke="#6E1A2E" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
-    ${points.map((p, i) => `<circle cx="${x(i)}" cy="${y(p[1])}" r="4" fill="#6E1A2E"/>`).join("")}
-    <text x="${x(0)}" y="${y(vals[0]) - 10}" text-anchor="start">${num(vals[0], 1)} kg</text>
-    <text x="${x(points.length - 1)}" y="${y(vals[vals.length - 1]) - 10}" text-anchor="end">${num(vals[vals.length - 1], 1)} kg</text>
-    <text x="${pad}" y="${H - 4}" text-anchor="start">${first}</text>
-    <text x="${W - pad}" y="${H - 4}" text-anchor="end">${last}</text>
-  </svg>`;
+function deficitText(v) {
+  return v >= 0 ? `${num(v)} kcal unter Ziel` : `${num(-v)} kcal über Ziel`;
 }
 
-function renderWeek() {
-  const keys = lastDays(7);
-  const labels = keys.map(k => keyToDate(k).toLocaleDateString("de-DE", { weekday: "short" }).replace(".", ""));
-  const t = keys.map(totals);
-  $("#chart-kcal").innerHTML = barChart(t.map(x => Math.round(x.kcal)), state.goals.kcal, labels, "kcal");
-  $("#chart-prot").innerHTML = barChart(t.map(x => Math.round(x.p)), state.goals.p, labels, "g");
-  const tracked = t.filter(x => x.kcal > 0);
-  const avg = key => tracked.length ? tracked.reduce((a, x) => a + x[key], 0) / tracked.length : 0;
-  $("#avg-kcal").textContent = tracked.length ? `Ø ${num(avg("kcal"))} kcal an ${tracked.length} getrackten Tagen` : "Noch keine Einträge in den letzten 7 Tagen.";
-  $("#avg-prot").textContent = tracked.length ? `Ø ${num(avg("p"))} g Protein pro Tag` : "";
-
-  const pts = Object.entries(state.weights).sort((a, b) => a[0].localeCompare(b[0])).slice(-30);
-  $("#chart-weight").innerHTML = lineChart(pts);
-  const todayW = state.weights[todayKey()];
-  $("#weight-input").value = todayW ?? "";
+function renderDeficit(todayLeft) {
+  const s7 = deficitStats(7), s30 = deficitStats(30);
+  if (!s7) { $("#avg-deficit").innerHTML = ""; return; }
+  const row = (label, s) => s ? `<div class="row"><span>Ø ${label} (${s.days} ${s.days === 1 ? "Tag" : "Tage"} getrackt)</span><b class="${s.avg >= 0 ? "good" : "bad"}">${deficitText(s.avg)}</b></div>` : "";
+  let note = "";
+  if (todayLeft < 0 && totals(currentDay).kcal > 0) {
+    note = s7.avg >= 0
+      ? `Heute bist du drüber, aber im 7-Tage-Schnitt trotzdem ${num(s7.avg)} kcal pro Tag unter deinem Ziel. Ein Tag macht keinen Trend.`
+      : "Heute und im 7-Tage-Schnitt über dem Ziel. Vielleicht passt dein Ziel gerade nicht zu deinem Alltag?";
+  } else if (s7.days >= 3) {
+    note = `Das sind ca. ${num(Math.abs(s7.total))} kcal ${s7.total >= 0 ? "Defizit" : "Überschuss"} in den letzten ${s7.days} getrackten Tagen.`;
+  }
+  $("#avg-deficit").innerHTML = row("7 Tage", s7) + row("30 Tage", s30) + (note ? `<p>${note}</p>` : "");
 }
 
 // ---------- Rendering: Profil ----------
@@ -262,14 +245,17 @@ function renderWeek() {
 function renderProfile() {
   const f = $("#goals-form");
   for (const k of ["kcal", "p", "kh", "f", "water"]) f.elements[k].value = state.goals[k];
+  const sf = $("#settings-form");
+  sf.elements.cycle.checked = !!state.settings?.cycle;
+  sf.elements.goalWeight.value = state.settings?.goalWeight ?? "";
 }
 
 function render() {
   if (!state.goals) return;
   if (view === "today") renderToday();
-  if (view === "week") renderWeek();
+  if (view === "week") renderTrends();
   if (view === "profile") renderProfile();
-  if (view === "ideas") renderIdeas($("#ideas-page"), false);
+  if (view === "ideas") renderRecipesView();
 }
 
 function showView(v) {
@@ -310,7 +296,7 @@ function showTab(tab) {
   if (tab !== "scan") stopScan();
   $$("#sheet .tab").forEach(t => t.hidden = t.dataset.tab !== tab);
   $$("#add-tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
-  if (tab === "ideas") renderIdeas($("#ideas-sheet"), true);
+  if (tab === "ideas") renderSheetRecipes();
 }
 
 function renderFoodList() {
@@ -360,6 +346,7 @@ function offFood(product, code) {
   return {
     id: "c-" + code, name, cat: "Eigene", barcode: code, portion: null,
     kcal: +n["energy-kcal_100g"] || 0, p: +n.proteins_100g || 0, kh: +n.carbohydrates_100g || 0, f: +n.fat_100g || 0,
+    m: offMicros(n),
   };
 }
 
@@ -410,13 +397,18 @@ function pickOnline(id) {
 
 const ideaById = id => IDEAS.find(i => i.id === id);
 
+function addUp(list) {
+  const t = { kcal: 0, p: 0, kh: 0, f: 0, m: {} };
+  for (const x of list) {
+    t.kcal += x.kcal; t.p += x.p; t.kh += x.kh; t.f += x.f;
+    for (const [k, v] of Object.entries(x.m || {})) t.m[k] = (t.m[k] || 0) + v;
+  }
+  return t;
+}
+
 function ideaTotals(idea) {
-  if (idea.meals) return idea.meals.map(id => ideaTotals(ideaById(id)))
-    .reduce((t, x) => ({ kcal: t.kcal + x.kcal, p: t.p + x.p, kh: t.kh + x.kh, f: t.f + x.f }));
-  return idea.items.reduce((t, [id, g]) => {
-    const x = scale(FOODS.find(f => f.id === id), g);
-    return { kcal: t.kcal + x.kcal, p: t.p + x.p, kh: t.kh + x.kh, f: t.f + x.f };
-  }, { kcal: 0, p: 0, kh: 0, f: 0 });
+  if (idea.meals) return addUp(idea.meals.map(id => ideaTotals(ideaById(id))));
+  return addUp(idea.items.map(([id, g]) => scale(FOODS.find(f => f.id === id), g)));
 }
 
 // A recipe is logged as one entry per portion
@@ -461,18 +453,18 @@ function cookIdea(id, fromSheet) {
 }
 
 // amount is in grams/ml (or portions); unit is the household unit it was entered in, if any
-function makeEntry(food, amount, slot, id, unit) {
+function makeEntry(food, amount, slot, id, unit, time = SLOT_TIMES[slot]) {
   const s = scale(food, amount);
   let amountLabel;
   if (food.portion) amountLabel = `${num(amount, 2)} × ${food.portion}`;
   else if (unit && unit.size !== 1) amountLabel = `${num(unit.n, 2)} ${unitText(unit.label, unit.n)} (${num(amount)} ${unitOf(food)})`;
   else amountLabel = `${num(amount)} ${unitOf(food)}`;
   return {
-    id: id || uid(), foodId: food.id, name: food.name, slot, amount, amountLabel,
+    id: id || uid(), foodId: food.id, name: food.name, slot, time, amount, amountLabel,
     unit: unit ? { u: unit.label, n: unit.n } : null,
-    kcal: s.kcal, p: s.p, kh: s.kh, f: s.f,
+    kcal: s.kcal, p: s.p, kh: s.kh, f: s.f, m: s.m,
     // Per-unit values, so the entry stays editable even if the food is removed later
-    base: { portion: food.portion || null, ml: !!food.ml, piece: food.piece, units: food.units, kcal: food.kcal, p: food.p, kh: food.kh, f: food.f },
+    base: { portion: food.portion || null, ml: !!food.ml, piece: food.piece, units: food.units, kcal: food.kcal, p: food.p, kh: food.kh, f: food.f, m: food.m || null },
   };
 }
 
@@ -480,6 +472,8 @@ function showAmount(food, slot, entryId, init = defaultPick(food)) {
   const units = unitsOf(food);
   const unit = units.find(u => u.label === init.u) || units[0];
   pick = { food, slot, entryId, units, unit };
+  const existing = entryId && day().entries.find(x => x.id === entryId);
+  $("#entry-time").value = existing?.time || (currentDay === todayKey() ? nowTime() : SLOT_TIMES[slot]);
   $("#add-tabs").hidden = true;
   $("#sheet-title").textContent = entryId ? "Bearbeiten" : "Menge";
   showTab("amount");
@@ -534,7 +528,8 @@ function submitAmount(e) {
   if (!(n > 0)) return toast("Bitte eine Menge eingeben");
   const slot = $("#slot").value;
   const d = ensureDay();
-  const entry = makeEntry(pick.food, n * pick.unit.size, slot, pick.entryId, { label: pick.unit.label, size: pick.unit.size, n });
+  const entry = makeEntry(pick.food, n * pick.unit.size, slot, pick.entryId, { label: pick.unit.label, size: pick.unit.size, n },
+    $("#entry-time").value || SLOT_TIMES[slot]);
   if (pick.entryId) d.entries = d.entries.map(x => x.id === pick.entryId ? entry : x);
   else d.entries.push(entry);
   state.recent = [pick.food.id, ...state.recent.filter(id => id !== pick.food.id)].slice(0, 20);
@@ -737,22 +732,21 @@ $("#onboard-skip").addEventListener("click", () => {
 });
 $("#recalc").addEventListener("click", openOnboarding);
 
+$("#settings-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const f = e.target.elements;
+  const gw = parseFloat(f.goalWeight.value);
+  state.settings = { ...state.settings, cycle: f.cycle.checked, goalWeight: gw > 0 ? gw : null };
+  save();
+  toast("Gespeichert");
+});
+
 $("#goals-form").addEventListener("submit", e => {
   e.preventDefault();
   const f = e.target.elements;
   state.goals = { kcal: +f.kcal.value, p: +f.p.value, kh: +f.kh.value, f: +f.f.value, water: +f.water.value };
   save();
   toast("Ziele gespeichert");
-});
-
-$("#weight-form").addEventListener("submit", e => {
-  e.preventDefault();
-  const v = parseFloat($("#weight-input").value);
-  if (!(v > 0)) return;
-  state.weights[todayKey()] = v;
-  save();
-  renderWeek();
-  toast("Gewicht gespeichert");
 });
 
 $("#reset").addEventListener("click", () => {
@@ -817,8 +811,3 @@ $("#storage-hint-close").addEventListener("click", () => {
   try { localStorage.setItem(STORE_KEY + "-hint", "1"); } catch (e) { /* ignore */ }
 });
 showStorageHint();
-
-// ---------- Start ----------
-
-if (!state.goals) openOnboarding();
-else showView("today");
