@@ -572,11 +572,17 @@ function submitManual(e) {
     kcal: +f.kcal.value || 0, p: +f.p.value || 0, kh: +f.kh.value || 0, f: +f.f.value || 0,
     barcode: f.barcode.value || undefined,
   };
+  const m = {};
+  for (const n of NUTRIENTS) { const v = f["m_" + n.key].value; if (v !== "") m[n.key] = Math.max(0, +v || 0); }
+  if (Object.keys(m).length) food.m = m;
   if (!food.name) return;
   if (f.save.checked) { state.custom.unshift(food); save(); }
   e.target.reset();
   showAmount(food, pick.slot);
 }
+
+$("#manual-micros").innerHTML = NUTRIENTS.map(n =>
+  `<label>${n.name} (${n.unit}) <input name="m_${n.key}" type="number" step="any" min="0" inputmode="decimal"></label>`).join("");
 
 // ---------- Barcode scanning (ZXing + Open Food Facts) ----------
 

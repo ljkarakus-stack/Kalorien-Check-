@@ -237,6 +237,11 @@
         <label>Kohlenhydrate (g) <input name="kh" type="number" step="any" min="0" inputmode="decimal" value="0"></label>
         <label>Fett (g) <input name="f" type="number" step="any" min="0" inputmode="decimal" value="0"></label>
       </div>
+      <details class="more-nutrients">
+        <summary>Weitere Nährwerte (optional)</summary>
+        <p class="muted small">Von der Packung übernehmen, gleiche Bezugsgröße wie oben. Leer gelassene Werte zählen als 0.</p>
+        <div class="grid2" id="manual-micros"></div>
+      </details>
       <input type="hidden" name="barcode">
       <label class="check"><input type="checkbox" name="save" checked> In „Eigene“ speichern</label>
       <button class="btn">Weiter</button>

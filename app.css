@@ -334,6 +334,8 @@ h4 { margin: 14px 0 4px; font-size: 17px; }
 #recipe-search { margin-top: 2px; }
 #recipe-new { width: 100%; margin-top: 4px; }
 .empty-state p { margin: 6px 0 0; }
+.more-nutrients summary { font-weight: 700; color: var(--bordeaux); cursor: pointer; }
+.more-nutrients[open] summary { margin-bottom: 6px; }
 .paste-link summary { font-weight: 700; color: var(--bordeaux); cursor: pointer; }
 .ing { display: grid; grid-template-columns: 1fr 84px 26px 36px; gap: 6px; align-items: center; padding: 6px 0; border-bottom: 2px solid var(--rosa-hell); }
 .ing-name { font-weight: 700; font-size: 15px; }
