@@ -1,7 +1,8 @@
 "use strict";
 
-// Optional account with sync via Supabase. Without config.js values the app stays local-only.
-// Expects one table `user_data` (see supabase-setup.sql): one row per user holding the whole state as JSON.
+// Optional account with sync, plus anonymous feedback, via Supabase. Without config.js values the
+// app stays local-only and both are hidden. Tables are created by supabase-setup.sql:
+// `user_data` holds one row per user with the whole state as JSON, `feedback` only accepts inserts.
 
 const CFG = window.KC_CONFIG || {};
 const sb = CFG.supabaseUrl && CFG.supabaseKey && window.supabase
@@ -215,6 +216,23 @@ async function deleteAccount() {
   toast("Dein Konto wurde gelöscht");
 }
 
+// ---------- Feedback ----------
+
+// Stored without any user id, name or email; only readable in the Supabase dashboard
+async function sendFeedback(e) {
+  e.preventDefault();
+  const f = e.target;
+  const message = f.elements.message.value.trim();
+  if (!message) return;
+  const btn = f.querySelector(".btn");
+  btn.disabled = true;
+  const { error } = await sb.from("feedback").insert({ message });
+  btn.disabled = false;
+  if (error) return toast("Senden hat nicht geklappt. Bitte versuch es nochmal.");
+  f.reset();
+  toast("Danke für dein Feedback! 💌");
+}
+
 // ---------- Wiring ----------
 
 if (sb) {
@@ -236,4 +254,6 @@ $("#auth-form").addEventListener("submit", submitAuth);
 $("#auth-close").addEventListener("click", () => $("#auth").hidden = true);
 $("#logout").addEventListener("click", logout);
 $("#delete-account").addEventListener("click", deleteAccount);
+$("#feedback-form").addEventListener("submit", sendFeedback);
+$("#feedback-form").hidden = !sb;
 renderAccount();

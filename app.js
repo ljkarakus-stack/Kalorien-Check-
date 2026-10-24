@@ -688,19 +688,6 @@ function submitOnboarding(e) {
   toast("Deine Ziele sind gespeichert. Du kannst sie im Profil ändern.");
 }
 
-// ---------- Feedback ----------
-
-// No server needed: hands the message to the person's own mail app
-function sendFeedback(e) {
-  e.preventDefault();
-  const msg = e.target.elements.message.value.trim();
-  if (!msg) return;
-  const body = `${msg}\n\n—\nGesendet aus dem jamileo Kalorien-Check`;
-  location.href = `mailto:collab@jamileo.com?subject=${encodeURIComponent("Feedback zum Kalorien-Check")}&body=${encodeURIComponent(body)}`;
-  e.target.reset();
-  toast("Danke! Deine E-Mail-App öffnet sich.");
-}
-
 // ---------- Events ----------
 
 document.addEventListener("click", e => {
@@ -771,7 +758,6 @@ $("#weight-form").addEventListener("submit", e => {
   toast("Gewicht gespeichert");
 });
 
-$("#feedback-form").addEventListener("submit", sendFeedback);
 $("#reset").addEventListener("click", () => {
   if (!confirm("Wirklich alle Einträge, Ziele und eigenen Lebensmittel löschen?")) return;
   state = blankState();

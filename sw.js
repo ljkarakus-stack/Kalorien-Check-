@@ -1,5 +1,5 @@
 // Offline cache for the app shell.
-const VERSION = "kc-v6";
+const VERSION = "kc-v7";
 const SHELL = [
   "./", "index.html", "app.css", "app.js", "account.js", "config.js", "foods.js", "manifest.webmanifest",
   "datenschutz.html", "impressum.html", "vendor/supabase.min.js",

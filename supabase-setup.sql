@@ -20,6 +20,20 @@ create policy "own data insert" on public.user_data for insert to authenticated 
 create policy "own data update" on public.user_data for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 create policy "own data delete" on public.user_data for delete to authenticated using ((select auth.uid()) = user_id);
 
+-- Anonymous feedback: anyone can send, nobody can read it through the app (only you, in the dashboard)
+create table if not exists public.feedback (
+  id bigint generated always as identity primary key,
+  message text not null check (char_length(message) between 1 and 2000),
+  created_at timestamptz not null default now()
+);
+
+alter table public.feedback enable row level security;
+
+drop policy if exists "anyone can send feedback" on public.feedback;
+create policy "anyone can send feedback" on public.feedback for insert to anon, authenticated with check (true);
+
+grant insert on public.feedback to anon, authenticated;
+
 -- Lets a signed-in user delete their own account (and through the cascade all their data)
 create or replace function public.delete_my_account()
 returns void
