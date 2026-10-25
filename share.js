@@ -55,7 +55,7 @@ function importRecipe(code) {
   const recipe = {
     id: uid(), title: String(d.t).slice(0, 80), cat: RECIPE_CATS.includes(d.c) ? d.c : "Mittagessen",
     portions: Math.max(1, +d.n || 1), text: d.x ? String(d.x).slice(0, 1500) : undefined,
-    ings: d.i.map(([food, g]) => ({ food: { ...food, name: String(food.name).slice(0, 120), kcal: +food.kcal || 0, p: +food.p || 0, kh: +food.kh || 0, f: +food.f || 0 }, g: +g || 0 })),
+    ings: d.i.map(([food, g]) => ({ food: { ...food, name: String(food.name).slice(0, 120), kcal: +food.kcal || 0, p: +food.p || 0, kh: +food.kh || 0, f: +food.f || 0, fib: +food.fib || 0 }, g: +g || 0 })),
   };
   if (!confirm(`Rezept „${recipe.title}“ übernehmen? Es landet unter „Meine Rezepte“.`)) return;
   state.recipes = [recipe, ...(state.recipes || [])];
@@ -69,7 +69,7 @@ function importRecipe(code) {
 
 const CHALLENGE_TYPES = {
   protein: { name: "Proteinziel schaffen", emoji: "💪", ok: k => totals(k).p >= state.goals.p },
-  kcal: { name: "Im Kalorienziel bleiben", emoji: "🎯", ok: k => { const t = totals(k).kcal; return t > 0 && t <= state.goals.kcal; } },
+  kcal: { name: "Im Kalorienziel bleiben", emoji: "🎯", ok: k => { const t = totals(k).kcal; return t > 0 && t <= dayGoals(k).kcal; } },
   water: { name: "Wasserziel trinken", emoji: "💧", ok: k => day(k).water >= state.goals.water },
   track: { name: "Jeden Tag tracken", emoji: "📝", ok: k => totals(k).kcal > 0 },
 };
@@ -124,7 +124,7 @@ async function weekImage() {
   const keys = rangeKeys(7), tracked = trackedKeys(keys);
   const avg = avgOf(tracked.map(k => totals(k).kcal)) || 0;
   const prot = avgOf(tracked.map(k => totals(k).p)) || 0;
-  const deficit = state.goals.kcal - avg;
+  const deficit = (avgOf(tracked.map(k => dayGoals(k).kcal)) || state.goals.kcal) - avg;
   const W = 1080, H = 1350, c = document.createElement("canvas");
   c.width = W; c.height = H;
   const g = c.getContext("2d");

@@ -38,6 +38,7 @@
       <div class="daylabel"><span id="day-name"></span><small id="day-date"></small></div>
       <button class="icon-btn" data-day="1" aria-label="Nächster Tag">›</button>
     </div>
+    <div class="card notice refeed" id="refeed-banner" hidden></div>
 
     <div class="card summary">
       <div class="ring-wrap">
@@ -151,6 +152,7 @@
       <label>Protein <span><input type="number" name="p" min="0" max="400" inputmode="numeric" required> g</span></label>
       <label>Kohlenhydrate <span><input type="number" name="kh" min="0" max="800" inputmode="numeric" required> g</span></label>
       <label>Fett <span><input type="number" name="f" min="0" max="300" inputmode="numeric" required> g</span></label>
+      <label>Ballaststoffe <span><input type="number" name="fib" min="0" max="100" inputmode="numeric" required> g</span></label>
       <label>Wasser <span><input type="number" name="water" min="0" max="8000" step="250" inputmode="numeric" required> ml</span></label>
       <button class="btn">Ziele speichern</button>
       <button type="button" class="btn ghost" id="recalc">Neu berechnen lassen</button>
@@ -170,6 +172,29 @@
       <label class="check"><input type="checkbox" name="cycle"> Zyklus mittracken</label>
       <p class="muted small">Mit Zyklus-Tracking kannst du deine Periode eintragen. Die App schätzt daraus deine Zyklusphase und zeigt dir nach ein paar Monaten Muster bei Hunger, Energie und Gewicht. Alles bleibt nur auf deinem Gerät. Keine medizinische Auswertung und keine Verhütungsmethode.</p>
       <button class="btn">Speichern</button>
+    </form>
+
+    <form class="card form" id="refeed-form">
+      <h3><span class="emoji">🍝</span> Refeed Day</h3>
+      <p class="muted small">Ein geplanter Tag mit mehr Kalorien, vor allem aus Kohlenhydraten. Viele machen das während einer Diät ein- bis zweimal im Monat, damit das Durchhalten leichter fällt. An diesem Tag hebt die App dein Ziel automatisch an.</p>
+      <label class="check"><input type="checkbox" name="on"> Refeed Day einplanen</label>
+      <div class="grid2">
+        <label>Wochentag
+          <select name="weekday">
+            <option value="1">Montag</option><option value="2">Dienstag</option><option value="3">Mittwoch</option><option value="4">Donnerstag</option>
+            <option value="5">Freitag</option><option value="6" selected>Samstag</option><option value="0">Sonntag</option>
+          </select>
+        </label>
+        <label>Rhythmus
+          <select name="every"><option value="1">jede Woche</option><option value="2" selected>alle 2 Wochen</option></select>
+        </label>
+      </div>
+      <label>Extra-Kalorien <span><input type="number" name="extra" min="100" max="1500" step="50" inputmode="numeric"> kcal</span></label>
+      <p class="muted small" id="refeed-hint"></p>
+      <div class="btn-row">
+        <button class="btn">Speichern</button>
+        <button type="button" class="btn ghost" id="refeed-ics">Erinnerung in den Kalender</button>
+      </div>
     </form>
 
     <form class="card form" id="reminder-form">
@@ -255,6 +280,7 @@
         <label>Protein (g) <input name="p" type="number" step="any" min="0" inputmode="decimal" value="0"></label>
         <label>Kohlenhydrate (g) <input name="kh" type="number" step="any" min="0" inputmode="decimal" value="0"></label>
         <label>Fett (g) <input name="f" type="number" step="any" min="0" inputmode="decimal" value="0"></label>
+        <label>Ballaststoffe (g) <input name="fib" type="number" step="any" min="0" inputmode="decimal" value="0"></label>
       </div>
       <input type="hidden" name="barcode">
       <label class="check"><input type="checkbox" name="save" checked> In „Eigene“ speichern</label>

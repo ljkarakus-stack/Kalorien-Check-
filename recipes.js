@@ -14,7 +14,7 @@ let draft = null;   // recipe being edited: { id?, ings: [{ food, g }] }
 function snapshot(food) {
   const round = v => Math.round(v * 100) / 100;
   return { id: food.id, name: food.name, portion: food.portion || undefined, ml: food.ml || undefined,
-    kcal: round(food.kcal), p: round(food.p), kh: round(food.kh), f: round(food.f) };
+    kcal: round(food.kcal), p: round(food.p), kh: round(food.kh), f: round(food.f), fib: round(food.fib || 0) };
 }
 
 function recipeTotals(r) {
@@ -25,7 +25,7 @@ function recipeTotals(r) {
 function recipeFood(r) {
   const t = recipeTotals(r), n = r.portions || 1;
   return { id: "rez-" + r.id, name: r.title, cat: "Rezepte", portion: "Portion",
-    kcal: t.kcal / n, p: t.p / n, kh: t.kh / n, f: t.f / n };
+    kcal: t.kcal / n, p: t.p / n, kh: t.kh / n, f: t.f / n, fib: t.fib / n };
 }
 
 function ingLabel(i) {

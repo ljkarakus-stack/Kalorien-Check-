@@ -68,8 +68,8 @@ function ensureDay(k = currentDay) {
 }
 function totals(k) {
   return day(k).entries.reduce((t, e) => ({
-    kcal: t.kcal + e.kcal, p: t.p + e.p, kh: t.kh + e.kh, f: t.f + e.f,
-  }), { kcal: 0, p: 0, kh: 0, f: 0 });
+    kcal: t.kcal + e.kcal, p: t.p + e.p, kh: t.kh + e.kh, f: t.f + e.f, fib: t.fib + (e.fib || 0),
+  }), { kcal: 0, p: 0, kh: 0, f: 0, fib: 0 });
 }
 
 function allFoods() {
@@ -85,7 +85,7 @@ function foodById(id) {
 // Nutrients for an amount: grams for per-100 g foods, count for portion foods
 function scale(food, amount) {
   const factor = food.portion ? amount : amount / 100;
-  return { kcal: food.kcal * factor, p: food.p * factor, kh: food.kh * factor, f: food.f * factor };
+  return { kcal: food.kcal * factor, p: food.p * factor, kh: food.kh * factor, f: food.f * factor, fib: (food.fib || 0) * factor };
 }
 function unitOf(food) {
   return food.ml ? "ml" : "g";
@@ -152,13 +152,58 @@ function calcGoals(profile) {
   const f = Math.round(kcal * 0.3 / 9);
   const kh = Math.max(0, Math.round((kcal - p * 4 - f * 9) / 4));
   const water = Math.round(weight * 35 / GLASS_ML) * GLASS_ML;
-  return { kcal, p, kh, f, water };
+  return { kcal, p, kh, f, fib: 30, water };
 }
 
 // ---------- Rendering: Heute ----------
 
+// ---------- Refeed day ----------
+
+// Settings: { on, weekday (0 = Sonntag), every (1 or 2 weeks), extra kcal, anchor (a refeed date for the 2-week rhythm) }
+function refeedSettings() {
+  return state.settings?.refeed || null;
+}
+function isRefeed(k) {
+  const r = refeedSettings();
+  if (!r?.on || (state.refeedSkip || {})[k]) return false;
+  if (keyToDate(k).getDay() !== r.weekday) return false;
+  if (r.every !== 2) return true;
+  const weeks = Math.round((keyToDate(k) - keyToDate(r.anchor)) / (7 * 86400000));
+  return weeks % 2 === 0;
+}
+// Suggested extra calories: back up to maintenance, between 200 and 800 kcal
+function refeedSuggestion() {
+  if (!state.profile) return 500;
+  const b = calcBreakdown({ pace: 0.5, ...state.profile });
+  return Math.min(800, Math.max(200, Math.round((b.tdee - state.goals.kcal) / 50) * 50));
+}
+// Goals for a given day: on refeed days the extra calories come as carbohydrates
+function dayGoals(k) {
+  const g = { fib: 30, ...state.goals };
+  if (!isRefeed(k)) return g;
+  const extra = refeedSettings().extra || refeedSuggestion();
+  return { ...g, kcal: g.kcal + extra, kh: g.kh + Math.round(extra / 4), refeed: extra };
+}
+
+function renderRefeedBanner() {
+  const el = $("#refeed-banner");
+  const r = refeedSettings();
+  if (!r?.on) { el.hidden = true; return; }
+  const g = dayGoals(currentDay);
+  const skipped = (state.refeedSkip || {})[currentDay];
+  if (g.refeed) {
+    el.innerHTML = `<b>🍝 Refeed Day</b><p>Dein Ziel heute: <b>${num(g.kcal)} kcal</b> (+${num(g.refeed)}). Die Extra-Kalorien am besten aus Kohlenhydraten: Reis, Kartoffeln, Nudeln, Obst. Protein wie immer, Fett eher normal.</p>
+      <button class="btn ghost small-btn" data-refeed-skip>Heute doch nicht</button>`;
+  } else if (skipped) {
+    el.innerHTML = `<b>🍝 Refeed Day ausgelassen</b><p>Normales Ziel heute.</p><button class="btn ghost small-btn" data-refeed-skip>Doch Refeed Day</button>`;
+  } else if (isRefeed(shiftKey(currentDay, 1))) {
+    el.innerHTML = `<b>🍝 Morgen ist Refeed Day</b><p>Plan schon mal etwas mehr Kohlenhydrate ein, z. B. Pasta oder Reis.</p>`;
+  } else { el.hidden = true; return; }
+  el.hidden = false;
+}
+
 function renderToday() {
-  const g = state.goals;
+  const g = dayGoals(currentDay);
   const t = totals(currentDay);
   const d = keyToDate(currentDay);
   const diff = Math.round((keyToDate(currentDay) - keyToDate(todayKey())) / 86400000);
@@ -176,17 +221,19 @@ function renderToday() {
   ring.style.strokeDashoffset = C * (1 - Math.min(1, t.kcal / g.kcal));
   ring.classList.toggle("over", left < 0);
   renderDeficit(left);
+  renderRefeedBanner();
   renderJournal();
 
   const macros = [
     ["💪", "Protein", t.p, g.p],
     ["🌾", "Kohlenhydrate", t.kh, g.kh],
     ["🫒", "Fett", t.f, g.f],
+    ["🥦", "Ballaststoffe", t.fib, g.fib ?? 30],
   ];
   $("#macros").innerHTML = macros.map(([e, name, v, goal]) => {
     const pct = goal ? Math.min(100, v / goal * 100) : 0;
-    // Going over protein is fine; over carbs or fat is flagged
-    const over = name !== "Protein" && v > goal * 1.05;
+    // Going over protein or fibre is fine; over carbs or fat is flagged
+    const over = (name === "Kohlenhydrate" || name === "Fett") && v > goal * 1.05;
     return `<div><div class="macro-top"><span><span class="emoji">${e}</span> ${name}</span><span><b>${num(v)}</b> / ${num(goal)} g</span></div>
       <div class="bar"><i class="${over ? "over" : ""}" style="width:${pct}%"></i></div></div>`;
   }).join("");
@@ -204,7 +251,7 @@ function renderToday() {
       <div class="meal-head"><h3><span class="emoji">${s.emoji}</span> ${s.name}</h3><small>${num(kcal)} kcal</small></div>
       ${list.length ? list.map(e => `<button class="entry" data-entry="${e.id}">
           <span class="n">${esc(e.name)}</span><span class="k">${num(e.kcal)} kcal</span>
-          <span class="d">${e.time ? `<span class="t">${e.time}</span> · ` : ""}${esc(e.amountLabel)} · ${num(e.p, 1)} g Protein · ${num(e.kh, 1)} g KH · ${num(e.f, 1)} g Fett</span>
+          <span class="d">${e.time ? `<span class="t">${e.time}</span> · ` : ""}${esc(e.amountLabel)} · ${num(e.p, 1)} g Protein · ${num(e.kh, 1)} g KH · ${num(e.f, 1)} g Fett${e.fib ? ` · ${num(e.fib, 1)} g Ballastst.` : ""}</span>
         </button>`).join("") : `<p class="empty">Noch nichts eingetragen</p>`}
       ${!list.length && prevSlot(s.id).length ? `<button class="add-line copy" data-copy-slot="${s.id}">↺ Wie ${prevLabel()}: ${prevSlot(s.id).length} ${prevSlot(s.id).length === 1 ? "Eintrag" : "Einträge"}, ${num(prevSlot(s.id).reduce((a, e) => a + e.kcal, 0))} kcal</button>` : ""}
       <button class="add-line" data-add-slot="${s.id}">+ ${s.name} hinzufügen</button>
@@ -261,9 +308,9 @@ function nowTime() {
 // Positive = under the goal (deficit), negative = over.
 function deficitStats(n, endKey = todayKey()) {
   const keys = Array.from({ length: n }, (_, i) => shiftKey(endKey, -i - 1));
-  const tracked = keys.map(k => totals(k).kcal).filter(k => k > 0);
+  const tracked = keys.filter(k => totals(k).kcal > 0);
   if (!tracked.length) return null;
-  const avg = tracked.reduce((a, k) => a + (state.goals.kcal - k), 0) / tracked.length;
+  const avg = tracked.reduce((a, k) => a + (dayGoals(k).kcal - totals(k).kcal), 0) / tracked.length;
   return { avg, days: tracked.length, total: avg * tracked.length };
 }
 
@@ -291,9 +338,11 @@ function renderDeficit(todayLeft) {
 function renderProfile() {
   const f = $("#goals-form");
   for (const k of ["kcal", "p", "kh", "f", "water"]) f.elements[k].value = state.goals[k];
+  f.elements.fib.value = state.goals.fib ?? 30;
   const sf = $("#settings-form");
   sf.elements.cycle.checked = !!state.settings?.cycle;
   sf.elements.theme.value = state.settings?.theme || "auto";
+  fillRefeedForm();
   sf.elements.goalWeight.value = state.settings?.goalWeight ?? "";
   $("#goal-explain").innerHTML = state.profile
     ? `<details><summary>Wie wurde mein Ziel berechnet?</summary>${explainGoal({ pace: 0.5, ...state.profile }, state.settings?.goalWeight)}
@@ -407,7 +456,7 @@ function offFood(product, code) {
     .filter(Boolean).join(" · ") || `Produkt ${code}`;
   return {
     id: "c-" + code, name, cat: "Eigene", barcode: code, portion: null,
-    kcal: +n["energy-kcal_100g"] || 0, p: +n.proteins_100g || 0, kh: +n.carbohydrates_100g || 0, f: +n.fat_100g || 0,
+    kcal: +n["energy-kcal_100g"] || 0, p: +n.proteins_100g || 0, kh: +n.carbohydrates_100g || 0, f: +n.fat_100g || 0, fib: +n.fiber_100g || 0,
   };
 }
 
@@ -459,9 +508,9 @@ function pickOnline(id) {
 const ideaById = id => IDEAS.find(i => i.id === id);
 
 function addUp(list) {
-  const t = { kcal: 0, p: 0, kh: 0, f: 0 };
+  const t = { kcal: 0, p: 0, kh: 0, f: 0, fib: 0 };
   for (const x of list) {
-    t.kcal += x.kcal; t.p += x.p; t.kh += x.kh; t.f += x.f;
+    t.kcal += x.kcal; t.p += x.p; t.kh += x.kh; t.f += x.f; t.fib += x.fib || 0;
   }
   return t;
 }
@@ -522,9 +571,9 @@ function makeEntry(food, amount, slot, id, unit, time = SLOT_TIMES[slot]) {
   return {
     id: id || uid(), foodId: food.id, name: food.name, slot, time, amount, amountLabel,
     unit: unit ? { u: unit.label, n: unit.n } : null,
-    kcal: s.kcal, p: s.p, kh: s.kh, f: s.f,
+    kcal: s.kcal, p: s.p, kh: s.kh, f: s.f, fib: s.fib,
     // Per-unit values, so the entry stays editable even if the food is removed later
-    base: { portion: food.portion || null, ml: !!food.ml, piece: food.piece, units: food.units, kcal: food.kcal, p: food.p, kh: food.kh, f: food.f },
+    base: { portion: food.portion || null, ml: !!food.ml, piece: food.piece, units: food.units, kcal: food.kcal, p: food.p, kh: food.kh, f: food.f, fib: food.fib || 0 },
   };
 }
 
@@ -630,7 +679,7 @@ function submitManual(e) {
   const food = {
     id: "c-" + uid(), name: f.name.value.trim(), cat: "Eigene",
     portion: manualBasis === "portion" ? "Portion" : null,
-    kcal: +f.kcal.value || 0, p: +f.p.value || 0, kh: +f.kh.value || 0, f: +f.f.value || 0,
+    kcal: +f.kcal.value || 0, p: +f.p.value || 0, kh: +f.kh.value || 0, f: +f.f.value || 0, fib: +f.fib.value || 0,
     barcode: f.barcode.value || undefined,
   };
   if (!food.name) return;
@@ -793,6 +842,12 @@ document.addEventListener("click", e => {
   else if (b.dataset.entry) editEntry(b.dataset.entry);
   else if (b.dataset.tab && b.closest("#add-tabs")) showTab(b.dataset.tab);
   else if (b.dataset.cat) { activeCat = b.dataset.cat; $("#search").value = ""; renderFoodList(); }
+  else if (b.hasAttribute("data-refeed-skip")) {
+    state.refeedSkip = state.refeedSkip || {};
+    if (state.refeedSkip[currentDay]) delete state.refeedSkip[currentDay]; else state.refeedSkip[currentDay] = true;
+    save();
+    renderToday();
+  }
   else if (b.dataset.copySlot) copyEntries(prevSlot(b.dataset.copySlot));
   else if (b.id === "copy-day") copyEntries(day(shiftKey(currentDay, -1)).entries);
   else if (b.id === "fav-toggle") toggleFav();
@@ -822,7 +877,7 @@ $("#barcode-form").addEventListener("submit", e => { e.preventDefault(); lookupB
 $("#onboard-form").addEventListener("submit", submitOnboarding);
 $("#onboard-form").addEventListener("input", () => { delete $("#onboard-form").dataset.ready; $("#onboard-form .btn").textContent = "Ziel berechnen"; $("#onboard-explain").hidden = true; });
 $("#onboard-skip").addEventListener("click", () => {
-  state.goals = state.goals || { kcal: 1600, p: 100, kh: 170, f: 55, water: 2000 };
+  state.goals = state.goals || { kcal: 1600, p: 100, kh: 170, f: 55, fib: 30, water: 2000 };
   save();
   $("#onboard").hidden = true;
   showView("profile");
@@ -844,7 +899,7 @@ $("#settings-form").addEventListener("submit", e => {
 $("#goals-form").addEventListener("submit", e => {
   e.preventDefault();
   const f = e.target.elements;
-  state.goals = { kcal: +f.kcal.value, p: +f.p.value, kh: +f.kh.value, f: +f.f.value, water: +f.water.value };
+  state.goals = { kcal: +f.kcal.value, p: +f.p.value, kh: +f.kh.value, f: +f.f.value, fib: +f.fib.value, water: +f.water.value };
   save();
   toast("Ziele gespeichert");
 });
@@ -973,4 +1028,63 @@ $("#reminder-form").addEventListener("submit", e => {
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   toast(`${count} tägliche Erinnerungen: Tippe auf „Alle hinzufügen“`);
+});
+
+// ---------- Refeed settings ----------
+
+const ICS_DAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+
+// Next date (from today) that falls on the weekday
+function nextWeekday(wd) {
+  let k = todayKey();
+  while (keyToDate(k).getDay() !== wd) k = shiftKey(k, 1);
+  return k;
+}
+
+function fillRefeedForm() {
+  const f = $("#refeed-form").elements, r = refeedSettings();
+  f.on.checked = !!r?.on;
+  if (r) { f.weekday.value = r.weekday; f.every.value = r.every; }
+  f.extra.value = r?.extra ?? "";
+  f.extra.placeholder = refeedSuggestion();
+  const next = r?.on ? [...Array(15).keys()].map(i => shiftKey(todayKey(), i)).find(isRefeed) : null;
+  $("#refeed-hint").textContent = `Vorschlag: +${num(refeedSuggestion())} kcal${state.profile ? ", also etwa dein Erhaltungsbedarf" : ""}.`
+    + (next ? ` Nächster Refeed Day: ${keyToDate(next).toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" })}.` : "");
+}
+
+function readRefeedForm() {
+  const f = $("#refeed-form").elements;
+  const weekday = +f.weekday.value, every = +f.every.value;
+  const old = refeedSettings();
+  // Keep the 2-week rhythm stable unless the weekday changes
+  const anchor = old?.anchor && old.weekday === weekday ? old.anchor : nextWeekday(weekday);
+  const extra = parseInt(f.extra.value, 10);
+  return { on: f.on.checked, weekday, every, extra: extra > 0 ? extra : null, anchor };
+}
+
+$("#refeed-form").addEventListener("submit", e => {
+  e.preventDefault();
+  state.settings = { ...state.settings, refeed: readRefeedForm() };
+  save();
+  fillRefeedForm();
+  toast(state.settings.refeed.on ? "Refeed Day eingeplant 🍝" : "Refeed Day ausgeschaltet");
+});
+
+$("#refeed-ics").addEventListener("click", () => {
+  const r = readRefeedForm();
+  const start = r.anchor.replace(/-/g, "");
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+  const extra = r.extra || refeedSuggestion();
+  const text = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//jamileo//Kalorien-Check//DE", "BEGIN:VEVENT",
+    `UID:kc-refeed-${stamp}@jamileo`, `DTSTAMP:${stamp}`, `DTSTART:${start}T080000`, "DURATION:PT15M",
+    `RRULE:FREQ=WEEKLY;INTERVAL=${r.every};BYDAY=${ICS_DAYS[r.weekday]}`,
+    "SUMMARY:🍝 Refeed Day", `DESCRIPTION:Heute ca. ${extra} kcal mehr\, vor allem aus Kohlenhydraten. (jamileo Kalorien-Check)`,
+    "TRANSP:TRANSPARENT", "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:🍝 Heute ist Refeed Day", "TRIGGER:PT0M", "END:VALARM",
+    "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/calendar" }));
+  a.download = "refeed-day.ics";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  toast("Tippe auf „Hinzufügen“, um die Erinnerung zu speichern");
 });

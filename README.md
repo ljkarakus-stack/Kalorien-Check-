@@ -4,7 +4,8 @@ Kalorien, Protein, Kohlenhydrate, Fett, Wasser und Gewicht einfach tracken – m
 
 - Tagesziel-Rechner, frei anpassbar
 - Lebensmittel-Liste, fertige Tagespläne, manuelle Eingabe und Barcode-Scanner (Daten: Open Food Facts, ODbL)
-- Durchschnittliches Kaloriendefizit über 7 und 30 Tage, Uhrzeit pro Mahlzeit
+- Kalorien, Protein, Kohlenhydrate, Fett und Ballaststoffe; Ø-Defizit über 7 und 30 Tage, Uhrzeit pro Mahlzeit
+- Refeed Days mit automatisch höherem Tagesziel und Kalender-Erinnerung
 - Trends über 7/30/90 Tage: Kalorien, Makros, Wasser, Gewicht, Körpermaße, Befinden – mit Zielwerten
 - Essenszeiten-Auswertung, Befindens-Tagebuch und optionales Zyklus-Tracking mit Mustern
 - Eigene Rezepte (durchsuchbar, nach Kategorien), Rezepte und Challenges per Link teilen, Wochenbild

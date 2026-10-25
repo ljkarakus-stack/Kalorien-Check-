@@ -24,6 +24,7 @@ const METRICS = [
   { key: "p", name: "Protein", unit: "g", food: true, goal: () => state.goals.p, val: k => totals(k).p },
   { key: "kh", name: "Kohlenhydrate", unit: "g", food: true, goal: () => state.goals.kh, val: k => totals(k).kh },
   { key: "f", name: "Fett", unit: "g", food: true, goal: () => state.goals.f, val: k => totals(k).f },
+  { key: "fib", name: "Ballaststoffe", unit: "g", food: true, goal: () => state.goals.fib ?? 30, val: k => totals(k).fib },
   { key: "water", name: "Wasser", unit: "l", d: 1, goal: () => state.goals.water / 1000, val: k => day(k).water ? day(k).water / 1000 : null },
   { key: "weight", name: "Gewicht", unit: "kg", d: 1, line: true, goal: () => state.settings?.goalWeight, val: k => state.weights[k] ?? null },
   { key: "waist", name: "Taille", unit: "cm", d: 1, line: true, val: k => state.measures?.[k]?.waist ?? null },
@@ -49,9 +50,11 @@ function renderBalance() {
     return;
   }
   const avgKcal = avgOf(tracked.map(k => totals(k).kcal));
-  const deficit = state.goals.kcal - avgKcal;
+  const avgGoal = avgOf(tracked.map(k => dayGoals(k).kcal));
+  const deficit = avgGoal - avgKcal;
+  const refeeds = tracked.filter(k => dayGoals(k).refeed).length;
   const total = deficit * tracked.length;
-  const over = tracked.filter(k => totals(k).kcal > state.goals.kcal).length;
+  const over = tracked.filter(k => totals(k).kcal > dayGoals(k).kcal).length;
   const hits = tracked.filter(k => totals(k).p >= state.goals.p).length;
   $("#t-balance").innerHTML = `
     <h3>Bilanz · ${range} Tage</h3>
@@ -69,7 +72,7 @@ function renderBalance() {
       <b>${hits} von ${tracked.length} ${tracked.length === 1 ? "Tag" : "Tagen"} · ${num(hits / tracked.length * 100)} %</b>
       <div class="bar"><i class="${hits === tracked.length ? "full" : ""}" style="width:${hits / tracked.length * 100}%"></i></div>
     </div>
-    <p class="muted small">Insgesamt ca. ${num(Math.abs(total))} kcal ${total >= 0 ? "Defizit" : "Überschuss"}, rechnerisch etwa ${num(Math.abs(total) / 7000, 1)} kg Körperfett. Ohne heute. Das Gewicht schwankt zusätzlich durch Wasser, Zyklus und Verdauung.</p>`;
+    <p class="muted small">Insgesamt ca. ${num(Math.abs(total))} kcal ${total >= 0 ? "Defizit" : "Überschuss"}, rechnerisch etwa ${num(Math.abs(total) / 7000, 1)} kg Körperfett. Ohne heute${refeeds ? `, Refeed Days (${refeeds}) mit ihrem höheren Ziel` : ""}. Das Gewicht schwankt zusätzlich durch Wasser, Zyklus und Verdauung.</p>`;
 }
 
 // ---------- Tiles + chart ----------

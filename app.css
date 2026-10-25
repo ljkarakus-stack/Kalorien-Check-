@@ -410,3 +410,7 @@ h4 { margin: 14px 0 4px; font-size: 17px; }
 @keyframes slideR { from { transform: translateX(-30px); opacity: .4; } }
 .daynav.slide-l { animation: slideL .25s ease; }
 .daynav.slide-r { animation: slideR .25s ease; }
+.notice.refeed { background: #FFE9C7; color: #4A2A0F; }
+.notice.refeed p { margin: 4px 0 8px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .notice.refeed { background: #4A3417; color: #FBE7C8; } }
+:root[data-theme="dark"] .notice.refeed { background: #4A3417; color: #FBE7C8; }
