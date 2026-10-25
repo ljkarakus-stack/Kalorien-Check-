@@ -52,6 +52,7 @@ function renderBalance() {
   const deficit = state.goals.kcal - avgKcal;
   const total = deficit * tracked.length;
   const over = tracked.filter(k => totals(k).kcal > state.goals.kcal).length;
+  const hits = tracked.filter(k => totals(k).p >= state.goals.p).length;
   $("#t-balance").innerHTML = `
     <h3>Bilanz · ${range} Tage</h3>
     <div class="big-stat ${deficit >= 0 ? "good" : "bad"}">
@@ -62,6 +63,11 @@ function renderBalance() {
       <div><b>${num(avgKcal)}</b><small>Ø kcal / Tag</small></div>
       <div><b>${tracked.length}</b><small>Tage getrackt</small></div>
       <div><b>${over}</b><small>Tage über Ziel</small></div>
+    </div>
+    <div class="hitrate">
+      <span><span class="emoji">💪</span> Proteinziel erreicht</span>
+      <b>${hits} von ${tracked.length} ${tracked.length === 1 ? "Tag" : "Tagen"} · ${num(hits / tracked.length * 100)} %</b>
+      <div class="bar"><i class="${hits === tracked.length ? "full" : ""}" style="width:${hits / tracked.length * 100}%"></i></div>
     </div>
     <p class="muted small">Insgesamt ca. ${num(Math.abs(total))} kcal ${total >= 0 ? "Defizit" : "Überschuss"}, rechnerisch etwa ${num(Math.abs(total) / 7000, 1)} kg Körperfett. Ohne heute. Das Gewicht schwankt zusätzlich durch Wasser, Zyklus und Verdauung.</p>`;
 }
@@ -105,7 +111,13 @@ function chartSvg(m, keys) {
   const step = (W - padL * 2) / keys.length;
   const cx = i => padL + step * i + step / 2;
   let body;
-  if (m.line) {
+  if (m.key === "weight") {
+    // Single weigh-ins as light dots, the 7-day moving average as the line
+    const ma = keys.map(movingWeight);
+    const dots = vals.map((v, i) => v == null ? "" : `<circle cx="${cx(i)}" cy="${y(v)}" r="${keys.length > 31 ? 2 : 3.5}" fill="#E9A9BA"/>`).join("");
+    const pts = ma.map((v, i) => v == null ? null : [cx(i), y(v)]).filter(Boolean);
+    body = dots + `<path d="${pts.map((p, i) => `${i ? "L" : "M"}${p[0]},${p[1]}`).join(" ")}" fill="none" stroke="#6E1A2E" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  } else if (m.line) {
     const pts = vals.map((v, i) => v == null ? null : [cx(i), y(v)]).filter(Boolean);
     body = `<path d="${pts.map((p, i) => `${i ? "L" : "M"}${p[0]},${p[1]}`).join(" ")}" fill="none" stroke="#6E1A2E" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
       ${pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="${keys.length > 31 ? 2 : 3.5}" fill="#6E1A2E"/>`).join("")}`;
@@ -122,6 +134,12 @@ function chartSvg(m, keys) {
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${m.name}, letzte ${keys.length} Tage">${goalLine}${body}${labels}</svg>`;
 }
 
+// Average of all weigh-ins in the 7 days up to and including k
+function movingWeight(k) {
+  const vals = Array.from({ length: 7 }, (_, i) => state.weights[shiftKey(k, -i)]).filter(v => v != null);
+  return vals.length ? avgOf(vals) : null;
+}
+
 function renderChart() {
   const m = METRICS.find(x => x.key === metricKey);
   const keys = rangeKeys(range);
@@ -131,8 +149,16 @@ function renderChart() {
   const goal = m.goal?.();
   let note = cur == null ? "" : `Ø ${num(cur, m.d || 0)} ${m.unit}`;
   if (cur != null && goal) note += m.line && m.key === "weight"
-    ? ` · noch ${num(Math.abs(([...keys].reverse().map(m.val).find(v => v != null)) - goal), 1)} kg bis zum Ziel`
+    ? ` · noch ${num(Math.abs(movingWeight([...keys].reverse().find(k => movingWeight(k) != null)) - goal), 1)} kg bis zum Ziel`
     : ` · ${num(cur / goal * 100)} % vom Ziel`;
+  if (m.key === "weight") {
+    const first = keys.find(k => movingWeight(k) != null), last = [...keys].reverse().find(k => movingWeight(k) != null);
+    if (first && last && first !== last) {
+      const diff = movingWeight(last) - movingWeight(first);
+      note = `7-Tage-Ø: ${diff <= 0 ? "−" : "+"}${num(Math.abs(diff), 1)} kg in ${range} Tagen` + (goal ? ` · noch ${num(Math.abs(movingWeight(last) - goal), 1)} kg bis zum Ziel` : "");
+    }
+    note += ". Linie = 7-Tage-Durchschnitt, Punkte = einzelne Messungen.";
+  }
   $("#t-chart-note").textContent = note;
 }
 

@@ -16,7 +16,7 @@ const SLOT_TIMES = { fruehstueck: "08:00", mittag: "12:30", snack: "16:00", aben
 function blankState() {
   return {
     goals: null, profile: null, days: {}, weights: {}, custom: [], recent: [], amounts: {},
-    journal: {}, measures: {}, settings: {}, recipes: [], challenges: [],
+    journal: {}, measures: {}, settings: {}, recipes: [], challenges: [], favorites: [],
   };
 }
 
@@ -132,15 +132,22 @@ function toast(msg) {
 
 // ---------- Goals ----------
 
-// Mifflin-St Jeor, then a moderate deficit or surplus. Protein 1.6 g per kg.
-function calcGoals({ sex, age, height, weight, activity, goal }) {
+// Mifflin-St Jeor resting rate × activity factor, then ±7700 kcal per kg at the chosen pace.
+// Protein 1.6 g per kg, fat 30 % of calories, carbs the rest.
+const KCAL_PER_KG = 7700;
+function calcBreakdown({ sex, age, height, weight, activity, goal, pace = 0.5 }) {
   const base = 10 * weight + 6.25 * height - 5 * age;
   const bmr = sex === "m" ? base + 5 : sex === "w" ? base - 161 : base - 78;
-  let kcal = bmr * activity;
-  if (goal === "lose") kcal -= 500;
-  if (goal === "gain") kcal += 300;
+  const tdee = bmr * activity;
+  const delta = goal === "keep" ? 0 : (goal === "lose" ? -1 : 1) * pace * KCAL_PER_KG / 7;
   const floor = sex === "m" ? 1500 : 1200;
-  kcal = Math.max(floor, Math.round(kcal / 50) * 50);
+  const kcal = Math.max(floor, Math.round((tdee + delta) / 50) * 50);
+  return { bmr, tdee, delta, floor, kcal, floored: tdee + delta < floor, realDelta: kcal - tdee };
+}
+
+function calcGoals(profile) {
+  const { weight } = profile;
+  const { kcal } = calcBreakdown(profile);
   const p = Math.round(weight * 1.6 / 5) * 5;
   const f = Math.round(kcal * 0.3 / 9);
   const kh = Math.max(0, Math.round((kcal - p * 4 - f * 9) / 4));
@@ -199,9 +206,50 @@ function renderToday() {
           <span class="n">${esc(e.name)}</span><span class="k">${num(e.kcal)} kcal</span>
           <span class="d">${e.time ? `<span class="t">${e.time}</span> · ` : ""}${esc(e.amountLabel)} · ${num(e.p, 1)} g Protein · ${num(e.kh, 1)} g KH · ${num(e.f, 1)} g Fett</span>
         </button>`).join("") : `<p class="empty">Noch nichts eingetragen</p>`}
+      ${!list.length && prevSlot(s.id).length ? `<button class="add-line copy" data-copy-slot="${s.id}">↺ Wie ${prevLabel()}: ${prevSlot(s.id).length} ${prevSlot(s.id).length === 1 ? "Eintrag" : "Einträge"}, ${num(prevSlot(s.id).reduce((a, e) => a + e.kcal, 0))} kcal</button>` : ""}
       <button class="add-line" data-add-slot="${s.id}">+ ${s.name} hinzufügen</button>
     </div>`;
   }).join("");
+  const prevAll = day(shiftKey(currentDay, -1)).entries;
+  $("#copy-day").hidden = !!day().entries.length || !prevAll.length;
+  $("#copy-day").textContent = `↺ Ganzen Tag von ${prevLabel()} übernehmen (${num(prevAll.reduce((a, e) => a + e.kcal, 0))} kcal)`;
+}
+
+// ---------- Copy from the previous day ----------
+
+function prevLabel() {
+  return currentDay === todayKey() ? "gestern" : "Vortag";
+}
+function prevSlot(slot) {
+  return day(shiftKey(currentDay, -1)).entries.filter(e => e.slot === slot);
+}
+function copyEntries(list) {
+  const d = ensureDay();
+  for (const e of list) d.entries.push({ ...e, id: uid() });
+  save();
+  renderToday();
+  toast(`${list.length} ${list.length === 1 ? "Eintrag" : "Einträge"} übernommen`);
+}
+
+// ---------- Favorites ----------
+
+function isFav(id) {
+  return (state.favorites || []).includes(id);
+}
+function toggleFav() {
+  const id = pick.food.id;
+  // Online and manual foods must exist in "Eigene" to be found again
+  if (!foodById(id)) state.custom.unshift(pick.food);
+  state.favorites = isFav(id) ? state.favorites.filter(x => x !== id) : [id, ...(state.favorites || [])];
+  save();
+  renderFavButton();
+  toast(isFav(id) ? "Zu Favoriten hinzugefügt ⭐" : "Aus Favoriten entfernt");
+}
+function renderFavButton() {
+  const on = isFav(pick.food.id);
+  $("#fav-toggle").textContent = on ? "★" : "☆";
+  $("#fav-toggle").classList.toggle("on", on);
+  $("#fav-toggle").setAttribute("aria-label", on ? "Aus Favoriten entfernen" : "Zu Favoriten hinzufügen");
 }
 
 function nowTime() {
@@ -245,7 +293,12 @@ function renderProfile() {
   for (const k of ["kcal", "p", "kh", "f", "water"]) f.elements[k].value = state.goals[k];
   const sf = $("#settings-form");
   sf.elements.cycle.checked = !!state.settings?.cycle;
+  sf.elements.theme.value = state.settings?.theme || "auto";
   sf.elements.goalWeight.value = state.settings?.goalWeight ?? "";
+  $("#goal-explain").innerHTML = state.profile
+    ? `<details><summary>Wie wurde mein Ziel berechnet?</summary>${explainGoal({ pace: 0.5, ...state.profile }, state.settings?.goalWeight)}
+       <p class="muted small">Gilt für die berechneten Werte. Hast du sie danach selbst geändert, zählen deine Werte.</p></details>`
+    : "";
 }
 
 function render() {
@@ -298,14 +351,16 @@ function showTab(tab) {
 }
 
 function renderFoodList() {
-  const cats = ["Alle", "Zuletzt", ...(state.custom.length ? ["Eigene"] : []), ...CATEGORIES];
+  const favs = (state.favorites || []).map(foodById).filter(Boolean);
+  const cats = ["Alle", ...(favs.length ? ["Favoriten"] : []), "Zuletzt", ...(state.custom.length ? ["Eigene"] : []), ...CATEGORIES];
   if (!cats.includes(activeCat)) activeCat = "Alle";
   $("#cats").innerHTML = cats.map(c => `<button class="chip ${c === activeCat ? "active" : ""}" data-cat="${esc(c)}">${esc(c)}</button>`).join("");
 
   const raw = $("#search").value.trim();
   const words = fold(raw).split(/\s+/).filter(Boolean);
   let list;
-  if (activeCat === "Zuletzt") list = state.recent.map(foodById).filter(Boolean);
+  if (activeCat === "Favoriten") list = favs;
+  else if (activeCat === "Zuletzt") list = state.recent.map(foodById).filter(Boolean);
   else if (activeCat === "Eigene") list = state.custom;
   else if (activeCat === "Alle") list = allFoods();
   else list = FOODS.filter(f => f.cat === activeCat);
@@ -319,11 +374,20 @@ function renderFoodList() {
     list.sort((a, b) => rank(a) - rank(b));
   }
 
-  $("#food-list").innerHTML = list.length ? list.map(f => `<button class="food" data-food="${esc(f.id)}">
-      <span class="n">${esc(f.name)}</span><span class="k">${num(f.kcal)} kcal</span>
+  const row = f => `<button class="food" data-food="${esc(f.id)}">
+      <span class="n">${isFav(f.id) ? "⭐ " : ""}${esc(f.name)}</span><span class="k">${num(f.kcal)} kcal</span>
       <span class="d">${baseLabel(f)} · ${num(f.p, 1)} g Protein · ${num(f.kh, 1)} g KH · ${num(f.f, 1)} g Fett</span>
-    </button>`).join("")
-    : `<p class="empty">${activeCat === "Zuletzt" && !words.length ? "Hier erscheinen deine zuletzt genutzten Lebensmittel." : "In der Liste nicht gefunden."}</p>`;
+    </button>`;
+  // Without a search, favorites and recent foods come first for fast logging
+  let quick = "";
+  if (activeCat === "Alle" && !words.length) {
+    const recent = state.recent.map(foodById).filter(f => f && !isFav(f.id)).slice(0, 5);
+    if (favs.length) quick += `<h3 class="list-head">⭐ Favoriten</h3>${favs.slice(0, 8).map(row).join("")}`;
+    if (recent.length) quick += `<h3 class="list-head">🕐 Zuletzt gegessen</h3>${recent.map(row).join("")}`;
+    if (quick) quick += `<h3 class="list-head">Alle Lebensmittel</h3>`;
+  }
+  $("#food-list").innerHTML = list.length ? quick + list.map(row).join("")
+    : `<p class="empty">${activeCat === "Zuletzt" && !words.length ? "Hier erscheinen deine zuletzt genutzten Lebensmittel." : activeCat === "Favoriten" ? "Tippe beim Eintragen auf ☆, um ein Lebensmittel zu deinen Favoriten zu machen." : "In der Liste nicht gefunden."}</p>`;
 
   $("#online").innerHTML = raw.length >= 3
     ? `<button class="add-line" data-online-search>🔎 „${esc(raw)}“ online suchen</button>
@@ -468,6 +532,7 @@ function showAmount(food, slot, entryId, init = defaultPick(food)) {
   const units = unitsOf(food);
   const unit = units.find(u => u.label === init.u) || units[0];
   pick = { food, slot, entryId, units, unit };
+  renderFavButton();
   const existing = entryId && day().entries.find(x => x.id === entryId);
   $("#entry-time").value = existing?.time || (currentDay === todayKey() ? nowTime() : SLOT_TIMES[slot]);
   $("#add-tabs").hidden = true;
@@ -643,6 +708,8 @@ async function lookupBarcode(code) {
 function openOnboarding() {
   const f = $("#onboard-form");
   if (state.profile) for (const [k, v] of Object.entries(state.profile)) if (f.elements[k]) f.elements[k].value = v;
+  f.elements.goalWeight.value = state.settings?.goalWeight ?? "";
+  togglePace();
   $("#onboard-preview").hidden = true;
   f.querySelector(".btn").textContent = "Ziel berechnen";
   delete f.dataset.ready;
@@ -655,25 +722,57 @@ function submitOnboarding(e) {
   const el = f.elements;
   const profile = {
     sex: el.sex.value, age: +el.age.value, height: +el.height.value,
-    weight: +el.weight.value, activity: +el.activity.value, goal: el.goal.value,
+    weight: +el.weight.value, activity: +el.activity.value, goal: el.goal.value, pace: +el.pace.value,
   };
+  const goalWeight = parseFloat(el.goalWeight.value) > 0 ? parseFloat(el.goalWeight.value) : null;
   // First press shows the result, second press confirms it
   if (!f.dataset.ready) {
     const g = calcGoals(profile);
     $("#onboard-preview").innerHTML = [["kcal", g.kcal, ""], ["Protein", g.p, " g"], ["KH", g.kh, " g"], ["Fett", g.f, " g"]]
       .map(([l, v, u]) => `<div><b>${num(v)}${u}</b><small>${l}</small></div>`).join("");
     $("#onboard-preview").hidden = false;
+    $("#onboard-explain").innerHTML = explainGoal(profile, goalWeight);
+    $("#onboard-explain").hidden = false;
     f.querySelector(".btn").textContent = "Passt, los geht's!";
     f.dataset.ready = "1";
     return;
   }
   state.profile = profile;
   state.goals = calcGoals(profile);
+  state.settings = { ...state.settings, goalWeight };
   if (!state.weights[todayKey()]) state.weights[todayKey()] = profile.weight;
   save();
   $("#onboard").hidden = true;
   showView("today");
   toast("Deine Ziele sind gespeichert. Du kannst sie im Profil ändern.");
+}
+
+// How the goal was calculated, in plain words
+function explainGoal(profile, goalWeight) {
+  const b = calcBreakdown(profile);
+  const lines = [
+    `<li><b>Grundumsatz ${num(b.bmr)} kcal</b>: Energie in völliger Ruhe, nach der Mifflin-St-Jeor-Formel aus Geschlecht, Alter, Größe und Gewicht.</li>`,
+    `<li><b>× ${num(profile.activity, 3)} Aktivität = ${num(b.tdee)} kcal</b> Gesamtumsatz pro Tag.</li>`,
+  ];
+  if (profile.goal !== "keep") lines.push(`<li><b>${b.delta < 0 ? "−" : "+"} ${num(Math.abs(b.delta))} kcal</b> für ca. ${num(profile.pace, 2)} kg pro Woche (1 kg Körperfett ≈ 7.700 kcal).</li>`);
+  lines.push(`<li><b>= ${num(b.kcal)} kcal</b> Tagesziel (auf 50 gerundet).</li>`);
+  let extra = "";
+  if (b.floored) extra += `<p class="hint">Rechnerisch wären es weniger als ${num(b.floor)} kcal. Darunter wird es schwer, satt und gut versorgt zu bleiben, deshalb setzt die App ${num(b.floor)} kcal an. Dein Tempo ist damit etwas langsamer: ca. ${num(Math.abs(b.realDelta) * 7 / KCAL_PER_KG, 2)} kg pro Woche.</p>`;
+  if (goalWeight && profile.goal !== "keep" && Math.sign(goalWeight - profile.weight) === (profile.goal === "lose" ? -1 : 1)) {
+    const perWeek = Math.abs(b.realDelta) * 7 / KCAL_PER_KG;
+    if (perWeek > 0) {
+      const weeks = Math.abs(goalWeight - profile.weight) / perWeek;
+      const date = new Date(Date.now() + weeks * 7 * 86400000);
+      extra += `<p class="hint">Bis ${num(goalWeight, 1)} kg: ca. ${num(Math.ceil(weeks))} Wochen, also etwa <b>${date.toLocaleDateString("de-DE", { month: "long", year: "numeric" })}</b>.</p>`;
+    }
+  }
+  return `<h4>So kommt dein Ziel zustande</h4><ul class="explain">${lines.join("")}</ul>${extra}
+    <p class="muted small">Alles Schätzungen: Der echte Verbrauch kann um 10–15 % abweichen. Beobachte 2–3 Wochen deinen Gewichtstrend (7-Tage-Ø) und pass das Ziel dann an. Protein: 1,6 g pro kg Körpergewicht, Fett: 30 % der Kalorien, Rest Kohlenhydrate.</p>`;
+}
+
+function togglePace() {
+  const f = $("#onboard-form").elements;
+  $("#pace-row").hidden = f.goal.value === "keep";
 }
 
 // ---------- Events ----------
@@ -694,6 +793,9 @@ document.addEventListener("click", e => {
   else if (b.dataset.entry) editEntry(b.dataset.entry);
   else if (b.dataset.tab && b.closest("#add-tabs")) showTab(b.dataset.tab);
   else if (b.dataset.cat) { activeCat = b.dataset.cat; $("#search").value = ""; renderFoodList(); }
+  else if (b.dataset.copySlot) copyEntries(prevSlot(b.dataset.copySlot));
+  else if (b.id === "copy-day") copyEntries(day(shiftKey(currentDay, -1)).entries);
+  else if (b.id === "fav-toggle") toggleFav();
   else if (b.dataset.food) { const f = foodById(b.dataset.food); showAmount(f, pick.slot); }
   else if (b.dataset.online) pickOnline(b.dataset.online);
   else if (b.hasAttribute("data-online-search")) searchOnline();
@@ -718,7 +820,7 @@ $("#manual-form").addEventListener("submit", submitManual);
 $("#scan-start").addEventListener("click", startScan);
 $("#barcode-form").addEventListener("submit", e => { e.preventDefault(); lookupBarcode($("#barcode-input").value); });
 $("#onboard-form").addEventListener("submit", submitOnboarding);
-$("#onboard-form").addEventListener("input", () => { delete $("#onboard-form").dataset.ready; $("#onboard-form .btn").textContent = "Ziel berechnen"; });
+$("#onboard-form").addEventListener("input", () => { delete $("#onboard-form").dataset.ready; $("#onboard-form .btn").textContent = "Ziel berechnen"; $("#onboard-explain").hidden = true; });
 $("#onboard-skip").addEventListener("click", () => {
   state.goals = state.goals || { kcal: 1600, p: 100, kh: 170, f: 55, water: 2000 };
   save();
@@ -727,12 +829,14 @@ $("#onboard-skip").addEventListener("click", () => {
   toast("Trag deine Ziele hier ein");
 });
 $("#recalc").addEventListener("click", openOnboarding);
+$("#onboard-form").elements.goal.addEventListener("change", togglePace);
 
 $("#settings-form").addEventListener("submit", e => {
   e.preventDefault();
   const f = e.target.elements;
   const gw = parseFloat(f.goalWeight.value);
-  state.settings = { ...state.settings, cycle: f.cycle.checked, goalWeight: gw > 0 ? gw : null };
+  state.settings = { ...state.settings, cycle: f.cycle.checked, goalWeight: gw > 0 ? gw : null, theme: f.theme.value };
+  applyTheme();
   save();
   toast("Gespeichert");
 });
@@ -807,3 +911,66 @@ $("#storage-hint-close").addEventListener("click", () => {
   try { localStorage.setItem(STORE_KEY + "-hint", "1"); } catch (e) { /* ignore */ }
 });
 showStorageHint();
+
+// ---------- Theme ----------
+
+function applyTheme() {
+  const t = state.settings?.theme;
+  if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+  else delete document.documentElement.dataset.theme;
+  const dark = t === "dark" || (t !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.querySelector('meta[name="theme-color"]').content = dark ? "#1C1114" : "#6E1A2E";
+}
+applyTheme();
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", applyTheme);
+
+// ---------- Swipe between days ----------
+
+let swipe = null;
+$("#view-today").addEventListener("touchstart", e => {
+  // Not while using the rating buttons or other horizontal controls
+  if (e.touches.length !== 1 || e.target.closest(".chips, input, select, textarea")) { swipe = null; return; }
+  swipe = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+}, { passive: true });
+$("#view-today").addEventListener("touchend", e => {
+  if (!swipe) return;
+  const dx = e.changedTouches[0].clientX - swipe.x, dy = e.changedTouches[0].clientY - swipe.y;
+  swipe = null;
+  if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
+  currentDay = shiftKey(currentDay, dx < 0 ? 1 : -1);
+  renderToday();
+  const card = $(".daynav");
+  card.classList.remove("slide-l", "slide-r");
+  void card.offsetWidth;
+  card.classList.add(dx < 0 ? "slide-l" : "slide-r");
+}, { passive: true });
+
+// ---------- Water reminder as calendar file ----------
+
+function reminderIcs(from, to, every) {
+  const [fh, fm] = from.split(":").map(Number), [th, tm] = to.split(":").map(Number);
+  const start = new Date(); start.setDate(start.getDate() + 1);
+  const pad = n => String(n).padStart(2, "0");
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+  const events = [];
+  for (let m = fh * 60 + fm; m <= th * 60 + tm; m += every) {
+    const dt = `${start.getFullYear()}${pad(start.getMonth() + 1)}${pad(start.getDate())}T${pad(Math.floor(m / 60))}${pad(m % 60)}00`;
+    events.push(["BEGIN:VEVENT", `UID:kc-water-${m}-${stamp}@jamileo`, `DTSTAMP:${stamp}`, `DTSTART:${dt}`, "DURATION:PT5M",
+      "RRULE:FREQ=DAILY", "SUMMARY:💧 Glas Wasser trinken", "DESCRIPTION:Erinnerung aus dem jamileo Kalorien-Check",
+      "TRANSP:TRANSPARENT", "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:💧 Glas Wasser trinken", "TRIGGER:PT0M", "END:VALARM", "END:VEVENT"].join("\r\n"));
+  }
+  return { text: ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//jamileo//Kalorien-Check//DE", "CALSCALE:GREGORIAN", ...events, "END:VCALENDAR"].join("\r\n"), count: events.length };
+}
+
+$("#reminder-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const f = e.target.elements;
+  if (f.to.value <= f.from.value) return toast("„Bis“ muss nach „Von“ liegen");
+  const { text, count } = reminderIcs(f.from.value, f.to.value, +f.every.value);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/calendar" }));
+  a.download = "trink-erinnerung.ics";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  toast(`${count} tägliche Erinnerungen: Tippe auf „Alle hinzufügen“`);
+});

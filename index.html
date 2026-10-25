@@ -69,6 +69,7 @@
 
     <div class="card journal" id="journal"></div>
 
+    <button class="add-line copy" id="copy-day" hidden></button>
     <div id="meals"></div>
 
     <a class="card insta" href="https://www.instagram.com/jamileo__/" target="_blank" rel="noopener">
@@ -153,14 +154,35 @@
       <label>Wasser <span><input type="number" name="water" min="0" max="8000" step="250" inputmode="numeric" required> ml</span></label>
       <button class="btn">Ziele speichern</button>
       <button type="button" class="btn ghost" id="recalc">Neu berechnen lassen</button>
+      <div id="goal-explain"></div>
     </form>
 
     <form class="card form" id="settings-form">
       <h3><span class="emoji">⚙️</span> Persönliches</h3>
       <label>Zielgewicht <span><input type="number" name="goalWeight" step="0.1" min="30" max="300" inputmode="decimal" placeholder="optional"> kg</span></label>
+      <label>Darstellung
+        <select name="theme">
+          <option value="auto">Automatisch (wie das Handy)</option>
+          <option value="light">Hell</option>
+          <option value="dark">Dunkel</option>
+        </select>
+      </label>
       <label class="check"><input type="checkbox" name="cycle"> Zyklus mittracken</label>
       <p class="muted small">Mit Zyklus-Tracking kannst du deine Periode eintragen. Die App schätzt daraus deine Zyklusphase und zeigt dir nach ein paar Monaten Muster bei Hunger, Energie und Gewicht. Alles bleibt nur auf deinem Gerät. Keine medizinische Auswertung und keine Verhütungsmethode.</p>
       <button class="btn">Speichern</button>
+    </form>
+
+    <form class="card form" id="reminder-form">
+      <h3><span class="emoji">💧</span> Trink-Erinnerung</h3>
+      <p class="muted small">Web-Apps dürfen auf dem iPhone keine Erinnerungen von selbst schicken. Deshalb legt die App sie in deinem Kalender an. Dort kannst du sie jederzeit wieder löschen.</p>
+      <div class="grid2">
+        <label>Von <input type="time" name="from" value="09:00" required></label>
+        <label>Bis <input type="time" name="to" value="19:00" required></label>
+      </div>
+      <label>Alle
+        <select name="every"><option value="60">1 Stunde</option><option value="120" selected>2 Stunden</option><option value="180">3 Stunden</option></select>
+      </label>
+      <button class="btn">Erinnerungen in den Kalender</button>
     </form>
 
     <div class="card" id="install-card">
@@ -254,9 +276,12 @@
 
     <!-- Amount step, shared by all sources -->
     <form class="tab form" data-tab="amount" id="amount-form" hidden>
-      <div class="pick">
-        <b id="pick-name"></b>
-        <small id="pick-base"></small>
+      <div class="pick-row">
+        <div class="pick">
+          <b id="pick-name"></b>
+          <small id="pick-base"></small>
+        </div>
+        <button type="button" class="fav" id="fav-toggle" aria-label="Zu Favoriten hinzufügen">☆</button>
       </div>
       <label>Menge
         <div class="amount-row">
@@ -305,7 +330,18 @@
           <option value="1.725">sehr aktiv (fast täglich Sport)</option>
         </select>
       </label>
+      <div class="grid2" id="pace-row">
+        <label>Zielgewicht (kg) <input name="goalWeight" type="number" step="0.1" min="35" max="300" inputmode="decimal" placeholder="optional"></label>
+        <label>Tempo
+          <select name="pace">
+            <option value="0.25">gemütlich · 0,25 kg/Woche</option>
+            <option value="0.5" selected>normal · 0,5 kg/Woche</option>
+            <option value="0.75">zügig · 0,75 kg/Woche</option>
+          </select>
+        </label>
+      </div>
       <div class="preview" id="onboard-preview" hidden></div>
+      <div id="onboard-explain" hidden></div>
       <button class="btn">Ziel berechnen</button>
       <button type="button" class="btn ghost" id="onboard-skip">Ziele selbst eintragen</button>
     </form>
