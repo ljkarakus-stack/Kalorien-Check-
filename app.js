@@ -517,12 +517,13 @@ function addUp(list) {
 
 function ideaTotals(idea) {
   if (idea.meals) return addUp(idea.meals.map(id => ideaTotals(ideaById(id))));
+  if (idea.per) return { fib: 0, ...idea.per };
   return addUp(idea.items.map(([id, g]) => scale(FOODS.find(f => f.id === id), g)));
 }
 
 // A recipe is logged as one entry per portion
 function ideaFood(idea) {
-  return { id: "idee-" + idea.id, name: idea.title, cat: "Ideen", portion: "Portion", ...ideaTotals(idea) };
+  return { id: "idee-" + idea.id, name: idea.title, cat: "Ideen", portion: idea.unit || "Portion", ...ideaTotals(idea) };
 }
 
 function renderIdeas(el, compact) {
@@ -530,15 +531,16 @@ function renderIdeas(el, compact) {
     const t = ideaTotals(idea);
     const ingredients = idea.meals
       ? idea.meals.map(id => ideaById(id).title)
-      : idea.items.map(([id, g]) => `${num(g)} ${unitOf(FOODS.find(f => f.id === id))} ${FOODS.find(f => f.id === id).name}`);
+      : idea.ingredients || idea.items.map(([id, g]) => `${num(g)} ${unitOf(FOODS.find(f => f.id === id))} ${FOODS.find(f => f.id === id).name}`);
     return `<article class="card idea">
       <img src="${idea.photo}" alt="" loading="lazy">
       <div class="idea-body">
         <h3>${esc(idea.title)}</h3>
-        <p class="idea-macros"><span class="emoji">🔥</span> ${num(t.kcal)} kcal · <span class="emoji">💪</span> ${num(t.p)} g Protein</p>
+        <p class="idea-macros"><span class="emoji">🔥</span> ${num(t.kcal)} kcal · <span class="emoji">💪</span> ${num(t.p)} g Protein${idea.unit ? ` <small class="muted">pro ${esc(idea.unit)}</small>` : ""}</p>
         ${compact ? "" : `<p class="muted">${esc(idea.text)}</p>
         <details><summary>${idea.meals ? "Mahlzeiten" : "Zutaten"}</summary><ul>${ingredients.map(i => `<li>${esc(i)}</li>`).join("")}</ul></details>`}
         <button class="btn" data-idea="${idea.id}">${idea.meals ? "Ganzen Tag eintragen" : "Nachgekocht? Eintragen"}</button>
+        ${!compact && idea.post ? `<a class="btn ghost" href="${idea.post}" target="_blank" rel="noopener">📱 Zum Post auf Instagram</a>` : ""}
       </div>
     </article>`;
   }).join("");
@@ -558,7 +560,7 @@ function cookIdea(id, fromSheet) {
   const slot = fromSheet ? pick.slot : idea.slot;
   pick = { slot };
   $("#sheet").hidden = false;
-  showAmount(ideaFood(idea), slot, null, { u: "Portion", n: 1 });
+  showAmount(ideaFood(idea), slot, null, { u: idea.unit || "Portion", n: idea.defaultN || 1 });
 }
 
 // amount is in grams/ml (or portions); unit is the household unit it was entered in, if any

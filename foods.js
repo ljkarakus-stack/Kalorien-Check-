@@ -236,6 +236,47 @@ const CATEGORIES = [
 
 // Recipe ideas from @jamileo__. items: [foodId, grams]; a day plan lists other ideas as its meals.
 const IDEAS = [
+  // From @jamileo__ posts. "per" = values per unit as stated in the post (or calculated from its ingredients).
+  // post: link to the Instagram post, shown as a button when set
+  {
+    id: "kuerbis-wrap", title: "High Protein Kürbis-Wrap", photo: "ideen/kuerbis-wrap.jpg", slot: "mittag", post: null,
+    text: "Kürbis-Wrap mit Hähnchenbrustfiletroulade, Protein-Käse, Salat, Tomaten und einer Light-Soße deiner Wahl. Werte ohne zusätzliche Soße.",
+    ingredients: ["1 Kürbis-Wrap", "Dulano Hähnchenbrustfiletroulade", "Eatlean Protein Cheese Slices", "Wildkräutersalat", "Cherrytomaten", "Exquisa Paprika-Chili", "Light-Soße nach Wahl"],
+    per: { kcal: 359, p: 43, kh: 22.1, f: 15, fib: 4 },
+  },
+  {
+    id: "asia-garnelen", title: "Asia-Garnelen-Pfanne mit Shirataki", photo: "ideen/asia-garnelen.jpg", slot: "abend", post: null,
+    text: "Garnelen anbraten, Pak Choi und Brokkoli dazu, Shirataki-Nudeln gründlich abspülen, abtropfen lassen und mit Erdnussbutter, Sojasoße und Teriyaki-Sauce vermischen.",
+    ingredients: ["100 g argentinische Rotgarnelen", "200 g Shirataki-/Konjak-Nudeln", "11 g Erdnussbutter", "10 ml Sojasoße", "15 ml Light-Teriyaki-Sauce", "100 g Pak Choi", "100 g Brokkoli"],
+    per: { kcal: 250, p: 25, kh: 18, f: 9, fib: 10 },
+  },
+  {
+    id: "himbeer-skyr-bowl", title: "Himbeer-Skyr-Bowl", photo: "ideen/himbeer-skyr-bowl.jpg", slot: "fruehstueck", post: null,
+    text: "Alles gut verrühren, die Flohsamenschalen quellen lassen und genießen. Flohsamenschalen immer mit ausreichend Flüssigkeit verwenden.",
+    ingredients: ["200 g Skyr natur", "100 g gefrorene Himbeeren, ungesüßt", "10 g Flohsamenschalen", "2 Löffel Chunky Flavour", "300 ml Wasser"],
+    per: { kcal: 221, p: 26, kh: 25, f: 3, fib: 14 },
+  },
+  {
+    id: "shirataki-haehnchen", title: "Shirataki-Pfanne mit Hähnchen & Gemüse", photo: "ideen/shirataki-haehnchen.jpg", slot: "abend", post: null,
+    unit: "Pfanne",
+    text: "Wasser in die Pfanne, Gemüsebrühe darin auflösen, Gemüse aufkochen, würzen, gegarte Hähnchenstücke und abgespülte Shirataki-Nudeln dazu und ca. 8 Minuten köcheln lassen. Werte für die ganze Pfanne, ohne Brühe, Öl oder Sauce.",
+    ingredients: ["400 g Shirataki-Nudeln", "150 g Hähnchenbruststücke, gegart", "170 g Champignons", "100 g Cherrytomaten", "79 g Zucchini", "75 g Zwiebeln", "ca. 50 g Lauchzwiebeln", "ca. 150 ml Wasser", "1 Würfel Gemüsebrühe", "Gewürze nach Geschmack"],
+    per: { kcal: 343, p: 45, kh: 16, f: 4, fib: 19 },
+  },
+  {
+    id: "vegane-lachsrollen", title: "Vegane Lachsrollen", photo: "ideen/vegane-lachsrollen.jpg", slot: "snack", post: null,
+    unit: "Rolle", defaultN: 3,
+    text: "Vegane Lachsscheiben nebeneinanderlegen, mit Exquisa Fitline bestreichen, Gurkenstreifen darauflegen, vorsichtig einrollen und in Stücke schneiden. Eine Portion ergibt 3 Rollen.",
+    ingredients: ["Veganer Räucherlaxx", "Exquisa Fitline Frischkäse", "Frische Gurke"],
+    per: { kcal: 45, p: 4.3, kh: 3.9, f: 2.2, fib: 0.3 },
+  },
+  {
+    id: "proteinbrot", title: "Saftiges Proteinbrot", photo: "ideen/proteinbrot.jpg", slot: "fruehstueck", post: null,
+    unit: "Scheibe", defaultN: 2,
+    text: "Ofen auf 180 °C vorheizen. Quark, Eiklar und Wasser verrühren, Kleie, Flohsamenschalen, Backpulver, Salz und Gewürz unterrühren, 10 Min. quellen lassen. In einer kleinen Kastenform 50–60 Min. backen und vollständig auskühlen lassen. Werte pro Scheibe à ca. 50 g (ca. 95 kcal pro 100 g).",
+    ingredients: ["250 g Magerquark", "200 g Eiklar", "40 g Weizenkleie", "15 g Flohsamenschalen", "10 g Backpulver", "100 ml Wasser", "1 TL Salz", "Brotgewürz nach Geschmack"],
+    per: { kcal: 48, p: 7, kh: 2.5, f: 0.4, fib: 3.5 },
+  },
   {
     id: "skyr-bowl", title: "Skyr-Bowl", photo: "ideen/skyr-bowl.jpg", slot: "fruehstueck",
     text: "Skyr in eine Schüssel, Beeren und Haferflocken drüber. Fertig in 2 Minuten.",
