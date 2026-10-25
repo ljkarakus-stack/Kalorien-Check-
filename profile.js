@@ -13,7 +13,7 @@ function avatar() {
 
 // Initials of the name, or a neutral emoji
 function avatarHtml(a = avatar()) {
-  if (a?.type === "photo") return `<img src="${a.data}" alt="">`;
+  if (a?.type === "photo") return `<img src="${a.data}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
   if (a?.type === "emoji") return `<span class="emoji" style="background:${a.color}">${a.emoji}</span>`;
   const name = (state.settings?.name || "").trim();
   return name ? `<span class="initials">${esc(name.split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase())}</span>` : `<span class="emoji neutral">👤</span>`;
@@ -35,7 +35,7 @@ function setAvatar(a) {
   renderAvatar();
 }
 
-// Crop the middle square and shrink it, so the picture stays small (about 20–40 KB)
+// Crop a square and shrink it, so the picture stays small (about 20–40 KB)
 function loadPhoto(file) {
   if (!file || !file.type.startsWith("image/")) return toast("Bitte ein Bild auswählen");
   const url = URL.createObjectURL(file);
@@ -44,7 +44,8 @@ function loadPhoto(file) {
     const side = Math.min(img.naturalWidth, img.naturalHeight);
     const c = document.createElement("canvas");
     c.width = c.height = AVATAR_SIZE;
-    c.getContext("2d").drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
+    // Portrait photos: faces are usually in the upper part, so crop closer to the top
+    c.getContext("2d").drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) * 0.2, side, side, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
     URL.revokeObjectURL(url);
     setAvatar({ type: "photo", data: c.toDataURL("image/jpeg", 0.82) });
     toast("Profilbild gespeichert");
