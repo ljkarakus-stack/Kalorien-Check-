@@ -20,6 +20,7 @@
   <div class="brand">
     <span class="brush dark">Kalorien-Check</span>
     <span class="script handle">by @jamileo__</span>
+    <button class="avatar avatar-mini" id="header-avatar" data-view="profile" aria-label="Profil"></button>
   </div>
 </header>
 
@@ -145,6 +146,22 @@
   <!-- Profil -->
   <section id="view-profile" class="view" hidden>
     <h2 class="brush dark">Profil &amp; Ziele</h2>
+    <div class="card me-card">
+      <div class="avatar avatar-big" id="profile-avatar"></div>
+      <label class="me-name">Dein Name <input id="profile-name" maxlength="30" placeholder="optional" autocomplete="given-name"></label>
+      <div class="btn-row">
+        <label class="btn">📷 Foto wählen<input type="file" id="avatar-file" accept="image/*" hidden></label>
+        <button type="button" class="btn ghost" id="avatar-emoji-btn">😊 Avatar gestalten</button>
+      </div>
+      <div class="avatar-maker" id="avatar-maker" hidden>
+        <p class="muted small">Emoji</p>
+        <div class="emoji-grid" id="emoji-grid"></div>
+        <p class="muted small">Farbe</p>
+        <div class="color-row" id="color-row"></div>
+      </div>
+      <button type="button" class="btn danger small-btn" id="avatar-remove" hidden>Bild entfernen</button>
+      <p class="muted small">Dein Bild bleibt nur auf diesem Gerät.</p>
+    </div>
     </div>
     <form class="card form" id="goals-form">
       <h3>Deine Tagesziele</h3>
@@ -410,6 +427,7 @@
 <script src="trends.js"></script>
 <script src="recipes.js"></script>
 <script src="share.js"></script>
+<script src="profile.js"></script>
 <script src="feedback.js"></script>
 <script src="main.js"></script>
 </body>
