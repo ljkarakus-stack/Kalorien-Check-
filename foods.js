@@ -257,7 +257,7 @@ const IDEAS = [
     per: { kcal: 221, p: 26, kh: 25, f: 3, fib: 14 },
   },
   {
-    id: "shirataki-haehnchen", title: "Shirataki-Pfanne mit Hähnchen & Gemüse", photo: "ideen/shirataki-haehnchen.jpg", slot: "abend", post: null,
+    id: "shirataki-haehnchen", title: "Shirataki-Pfanne mit Hähnchen & Gemüse", photo: "ideen/shirataki-haehnchen.jpg", slot: "abend", post: "https://www.instagram.com/reel/Dehz4ozN5Sv/",
     unit: "Pfanne",
     text: "Wasser in die Pfanne, Gemüsebrühe darin auflösen, Gemüse aufkochen, würzen, gegarte Hähnchenstücke und abgespülte Shirataki-Nudeln dazu und ca. 8 Minuten köcheln lassen. Werte für die ganze Pfanne, ohne Brühe, Öl oder Sauce.",
     ingredients: ["400 g Shirataki-Nudeln", "150 g Hähnchenbruststücke, gegart", "170 g Champignons", "100 g Cherrytomaten", "79 g Zucchini", "75 g Zwiebeln", "ca. 50 g Lauchzwiebeln", "ca. 150 ml Wasser", "1 Würfel Gemüsebrühe", "Gewürze nach Geschmack"],
