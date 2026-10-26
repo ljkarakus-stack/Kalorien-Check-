@@ -239,19 +239,19 @@ const IDEAS = [
   // From @jamileo__ posts. "per" = values per unit as stated in the post (or calculated from its ingredients).
   // post: link to the Instagram post, shown as a button when set
   {
-    id: "kuerbis-wrap", title: "High Protein Kürbis-Wrap", photo: "ideen/kuerbis-wrap.jpg", slot: "mittag", post: null,
+    id: "kuerbis-wrap", title: "High Protein Kürbis-Wrap", photo: "ideen/kuerbis-wrap.jpg", slot: "mittag", post: "https://www.instagram.com/p/DePoOHVjcd2/",
     text: "Kürbis-Wrap mit Hähnchenbrustfiletroulade, Protein-Käse, Salat, Tomaten und einer Light-Soße deiner Wahl. Werte ohne zusätzliche Soße.",
     ingredients: ["1 Kürbis-Wrap", "Dulano Hähnchenbrustfiletroulade", "Eatlean Protein Cheese Slices", "Wildkräutersalat", "Cherrytomaten", "Exquisa Paprika-Chili", "Light-Soße nach Wahl"],
     per: { kcal: 359, p: 43, kh: 22.1, f: 15, fib: 4 },
   },
   {
-    id: "asia-garnelen", title: "Asia-Garnelen-Pfanne mit Shirataki", photo: "ideen/asia-garnelen.jpg", slot: "abend", post: null,
+    id: "asia-garnelen", title: "Asia-Garnelen-Pfanne mit Shirataki", photo: "ideen/asia-garnelen.jpg", slot: "abend", post: "https://www.instagram.com/reel/Dev1lhmN0xt/",
     text: "Garnelen anbraten, Pak Choi und Brokkoli dazu, Shirataki-Nudeln gründlich abspülen, abtropfen lassen und mit Erdnussbutter, Sojasoße und Teriyaki-Sauce vermischen.",
     ingredients: ["100 g argentinische Rotgarnelen", "200 g Shirataki-/Konjak-Nudeln", "11 g Erdnussbutter", "10 ml Sojasoße", "15 ml Light-Teriyaki-Sauce", "100 g Pak Choi", "100 g Brokkoli"],
     per: { kcal: 250, p: 25, kh: 18, f: 9, fib: 10 },
   },
   {
-    id: "himbeer-skyr-bowl", title: "Himbeer-Skyr-Bowl", photo: "ideen/himbeer-skyr-bowl.jpg", slot: "fruehstueck", post: null,
+    id: "himbeer-skyr-bowl", title: "Himbeer-Skyr-Bowl", photo: "ideen/himbeer-skyr-bowl.jpg", slot: "fruehstueck", post: "https://www.instagram.com/reel/DeoQYr0NarA/",
     text: "Alles gut verrühren, die Flohsamenschalen quellen lassen und genießen. Flohsamenschalen immer mit ausreichend Flüssigkeit verwenden.",
     ingredients: ["200 g Skyr natur", "100 g gefrorene Himbeeren, ungesüßt", "10 g Flohsamenschalen", "2 Löffel Chunky Flavour", "300 ml Wasser"],
     per: { kcal: 221, p: 26, kh: 25, f: 3, fib: 14 },
@@ -264,14 +264,14 @@ const IDEAS = [
     per: { kcal: 343, p: 45, kh: 16, f: 4, fib: 19 },
   },
   {
-    id: "vegane-lachsrollen", title: "Vegane Lachsrollen", photo: "ideen/vegane-lachsrollen.jpg", slot: "snack", post: null,
+    id: "vegane-lachsrollen", title: "Vegane Lachsrollen", photo: "ideen/vegane-lachsrollen.jpg", slot: "snack", post: "https://www.instagram.com/p/DeTneDjjSVf/",
     unit: "Rolle", defaultN: 3,
     text: "Vegane Lachsscheiben nebeneinanderlegen, mit Exquisa Fitline bestreichen, Gurkenstreifen darauflegen, vorsichtig einrollen und in Stücke schneiden. Eine Portion ergibt 3 Rollen.",
     ingredients: ["Veganer Räucherlaxx", "Exquisa Fitline Frischkäse", "Frische Gurke"],
     per: { kcal: 45, p: 4.3, kh: 3.9, f: 2.2, fib: 0.3 },
   },
   {
-    id: "proteinbrot", title: "Saftiges Proteinbrot", photo: "ideen/proteinbrot.jpg", slot: "fruehstueck", post: null,
+    id: "proteinbrot", title: "Saftiges Proteinbrot", photo: "ideen/proteinbrot.jpg", slot: "fruehstueck", post: "https://www.instagram.com/reel/Detik7ptGzn/",
     unit: "Scheibe", defaultN: 2,
     text: "Ofen auf 180 °C vorheizen. Quark, Eiklar und Wasser verrühren, Kleie, Flohsamenschalen, Backpulver, Salz und Gewürz unterrühren, 10 Min. quellen lassen. In einer kleinen Kastenform 50–60 Min. backen und vollständig auskühlen lassen. Werte pro Scheibe à ca. 50 g (ca. 95 kcal pro 100 g).",
     ingredients: ["250 g Magerquark", "200 g Eiklar", "40 g Weizenkleie", "15 g Flohsamenschalen", "10 g Backpulver", "100 ml Wasser", "1 TL Salz", "Brotgewürz nach Geschmack"],
