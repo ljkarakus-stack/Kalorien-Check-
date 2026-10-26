@@ -245,7 +245,7 @@ const IDEAS = [
     per: { kcal: 359, p: 43, kh: 22.1, f: 15, fib: 4 },
   },
   {
-    id: "asia-garnelen", title: "Asia-Garnelen-Pfanne mit Shirataki", photo: "ideen/asia-garnelen.jpg", slot: "abend", post: "https://www.instagram.com/reel/Dev1lhmN0xt/",
+    id: "asia-garnelen", title: "Asia-Garnelen-Pfanne mit Shirataki", photo: "ideen/asia-garnelen.jpg", slot: "abend", post: "https://www.instagram.com/reel/Detik7ptGzn/",
     text: "Garnelen anbraten, Pak Choi und Brokkoli dazu, Shirataki-Nudeln gründlich abspülen, abtropfen lassen und mit Erdnussbutter, Sojasoße und Teriyaki-Sauce vermischen.",
     ingredients: ["100 g argentinische Rotgarnelen", "200 g Shirataki-/Konjak-Nudeln", "11 g Erdnussbutter", "10 ml Sojasoße", "15 ml Light-Teriyaki-Sauce", "100 g Pak Choi", "100 g Brokkoli"],
     per: { kcal: 250, p: 25, kh: 18, f: 9, fib: 10 },
@@ -271,7 +271,7 @@ const IDEAS = [
     per: { kcal: 45, p: 4.3, kh: 3.9, f: 2.2, fib: 0.3 },
   },
   {
-    id: "proteinbrot", title: "Saftiges Proteinbrot", photo: "ideen/proteinbrot.jpg", slot: "fruehstueck", post: "https://www.instagram.com/reel/Detik7ptGzn/",
+    id: "proteinbrot", title: "Saftiges Proteinbrot", photo: "ideen/proteinbrot.jpg", slot: "fruehstueck", post: "https://www.instagram.com/reel/Dev1lhmN0xt/",
     unit: "Scheibe", defaultN: 2,
     text: "Ofen auf 180 °C vorheizen. Quark, Eiklar und Wasser verrühren, Kleie, Flohsamenschalen, Backpulver, Salz und Gewürz unterrühren, 10 Min. quellen lassen. In einer kleinen Kastenform 50–60 Min. backen und vollständig auskühlen lassen. Werte pro Scheibe à ca. 50 g (ca. 95 kcal pro 100 g).",
     ingredients: ["250 g Magerquark", "200 g Eiklar", "40 g Weizenkleie", "15 g Flohsamenschalen", "10 g Backpulver", "100 ml Wasser", "1 TL Salz", "Brotgewürz nach Geschmack"],
