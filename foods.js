@@ -278,6 +278,33 @@ const IDEAS = [
     per: { kcal: 48, p: 7, kh: 2.5, f: 0.4, fib: 3.5 },
   },
   {
+    id: "zimtschnecken", title: "Zimtschnecken mit cremigem Topping", photo: "ideen/zimtschnecken.jpg", slot: "snack", post: "https://www.instagram.com/reel/DfRfmZyNr8s/",
+    unit: "Stück",
+    text: "Quark, Mehl, Backpulver und Erythrit verkneten, rechteckig ausrollen, mit Light-Butter, Erythrit und Zimt bestreichen, aufrollen und in 8 Stücke schneiden. Bei 180 °C Umluft 25–30 Min. backen. Frischkäse, Milch und Vanille-Süße verrühren und auf die etwas abgekühlten Schnecken streichen. Werte pro Stück inkl. Topping.",
+    ingredients: ["250 g Magerquark", "150 g Dinkelmehl", "½ Päckchen Backpulver", "30 g Erythrit (Teig)", "Optional: Vanille-Flavourdrops", "25 g Light-Butter oder Light-Margarine", "50 g Erythrit (Füllung)", "1 EL Zimt", "100 g Frischkäse light", "25 ml Milch", "Vanille-Süße nach Geschmack"],
+    per: { kcal: 115, p: 7, kh: 15, f: 2.5, fib: 1.5 },
+  },
+  {
+    id: "pumpkin-cheesecake", title: "Pumpkin Salted Caramel Cheesecake (vegan)", photo: "ideen/pumpkin-cheesecake.jpg", slot: "snack", post: "https://www.instagram.com/reel/DfIVyaKtY_J/",
+    unit: "Stück",
+    text: "Spekulatius zerbröseln, mit Apfelmark in die Springform drücken und bei 170 °C ca. 8 Min. vorbacken. Tofu, Soja-Skyr, Kürbispüree, Proteinpulver, Stärke, Chunky und Gewürze fein pürieren, auf den Boden geben und bei 160 °C 50–60 Min. backen. Soja-Skyr mit Salted-Caramel-Chunky als Topping verstreichen und über Nacht kühlen. Werte pro Stück bei 10 Stücken.",
+    ingredients: ["60 g veganer Spekulatius", "50 g Apfelmark ohne Zuckerzusatz", "400 g proteinreicher Soja-Skyr, ungesüßt", "300 g fester Naturtofu", "300 g Kürbispüree", "30 g veganes Vanille-Proteinpulver", "25 g Speisestärke", "3–5 g Chunky Flavour Salted Caramel", "2 TL Zimt", "½ TL Pumpkin Spice oder Lebkuchengewürz", "1 TL Vanilleextrakt", "1–2 EL Zitronensaft", "Topping: 50 g Soja-Skyr, 1–2 g Chunky Flavour Salted Caramel, Prise Meersalz"],
+    per: { kcal: 140, p: 12, kh: 11, f: 5, fib: 1.5 },
+  },
+  {
+    id: "cookie-dough", title: "Cookie Dough zum Löffeln", photo: "ideen/cookie-dough.jpg", slot: "snack", post: "https://www.instagram.com/reel/De_iUHgt9m6/",
+    text: "Getreidebrei nach Packungsangabe vorbereiten, Protein- und Aromapulver einrühren und Wasser schluckweise ergänzen. Kurz quellen lassen – wird’s zu fest, einfach etwas Wasser dazugeben.",
+    ingredients: ["28 g Instant-Grieß-Getreidebrei", "17 g MORE Vegan Protein", "Chunky Flavour nach Geschmack", "Wasser nach Bedarf"],
+    per: { kcal: 160, p: 15, kh: 20, f: 2, fib: 1 },
+  },
+  {
+    id: "lebkuchen-cheesecake", title: "Lebkuchen Crumble-Cheesecake", photo: "ideen/lebkuchen-cheesecake.jpg", slot: "snack", post: "https://www.instagram.com/reel/DepKz4qtTxF/",
+    unit: "Stück",
+    text: "Bodenzutaten verkneten, in die Springform drücken und einen kleinen Rand hochziehen. Füllung glatt rühren und verteilen. Streuselzutaten mit den Händen zu Streuseln verarbeiten und darübergeben. Backen, bis die Streusel goldgelb sind, und vollständig abkühlen lassen. Werte pro Stück bei 12 Stücken (aus den Zutaten berechnet).",
+    ingredients: ["Boden: 150 g Weizenmehl, 30 g Proteinpulver, 100 g Magerquark, 1 Ei, 30 g Becel Light, Erythrit, Backpulver, Prise Salz", "Füllung: 250 g Magerquark, 1 Ei, 20 g Vanilleproteinpulver, 15 g Speisestärke, Erythrit und Vanille oder Chunky Flavour", "Streusel: 130 g Weizenmehl, 40 g Becel Light, Erythrit, Prise Salz, optional Zimt"],
+    per: { kcal: 150, p: 10, kh: 19, f: 3.5, fib: 1 },
+  },
+  {
     id: "skyr-bowl", title: "Skyr-Bowl", photo: "ideen/skyr-bowl.jpg", slot: "fruehstueck",
     text: "Skyr in eine Schüssel, Beeren und Haferflocken drüber. Fertig in 2 Minuten.",
     items: [["skyr", 250], ["beeren", 100], ["haferflocken", 40]],
