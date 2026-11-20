@@ -381,9 +381,11 @@ function openSheet(slot) {
   $("#sheet").hidden = false;
   $("#sheet-title").textContent = "Hinzufügen";
   $("#add-tabs").hidden = false;
-  showTab("search");
   $("#search").value = "";
+  onlineQuery = null;
   renderFoodList();
+  // Reopen where the person left off: whoever scanned last time gets the camera straight away
+  showTab(state.settings?.addTab === "scan" ? "scan" : "search");
 }
 
 function closeSheet() {
@@ -392,11 +394,16 @@ function closeSheet() {
   pick = null;
 }
 
-function showTab(tab) {
+function showTab(tab, chosen) {
   if (tab !== "scan") stopScan();
+  if (chosen && (tab === "scan" || tab === "search") && state.settings?.addTab !== tab) {
+    state.settings = { ...state.settings, addTab: tab };
+    save();
+  }
   $$("#sheet .tab").forEach(t => t.hidden = t.dataset.tab !== tab);
   $$("#add-tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
   if (tab === "ideas") renderSheetRecipes();
+  if (tab === "scan") startScan();
 }
 
 function renderFoodList() {
@@ -438,15 +445,19 @@ function renderFoodList() {
   $("#food-list").innerHTML = list.length ? quick + list.map(row).join("")
     : `<p class="empty">${activeCat === "Zuletzt" && !words.length ? "Hier erscheinen deine zuletzt genutzten Lebensmittel." : activeCat === "Favoriten" ? "Tippe beim Eintragen auf ☆, um ein Lebensmittel zu deinen Favoriten zu machen." : "In der Liste nicht gefunden."}</p>`;
 
-  $("#online").innerHTML = raw.length >= 3
-    ? `<button class="add-line" data-online-search>🔎 „${esc(raw)}“ online suchen</button>
-       <p class="muted small center">Markenprodukte aus der freien Datenbank Open Food Facts</p>`
-    : "";
+  clearTimeout(autoOnline);
+  if (raw.length < 3) { $("#online").innerHTML = ""; return; }
+  if (onlineQuery === raw) return; // results for this exact text are already shown
+  $("#online").innerHTML = `<button class="add-line" data-online-search>🔎 „${esc(raw)}“ online suchen</button>`;
+  // Nothing in our list: look online by itself once the typing pauses
+  if (!list.length && words.length) autoOnline = setTimeout(() => searchOnline(false), 900);
 }
 
 // ---------- Online search (Open Food Facts) ----------
 
 let onlineResults = {};
+let onlineQuery = null;   // text whose results (or loading state) are shown in #online
+let autoOnline = null;
 
 // Turn an Open Food Facts product into one of our foods, or null if it has no kcal value
 function offFood(product, code) {
@@ -460,34 +471,49 @@ function offFood(product, code) {
   };
 }
 
-async function searchOnline() {
+async function searchOnline(closeKeyboard = true) {
   const q = $("#search").value.trim();
+  if (q.length < 2 || onlineQuery === q) return;
+  clearTimeout(autoOnline);
+  onlineQuery = q;
+  // Close the keyboard so the results are visible right away
+  if (closeKeyboard) $("#search").blur();
   const box = $("#online");
-  box.innerHTML = `<p class="muted center">Suche „${esc(q)}“ …</p>`;
+  box.innerHTML = `<p class="muted center loading-dots">🔎 Suche „${esc(q)}“ online</p>`;
   const url = "https://world.openfoodfacts.org/cgi/search.pl?" + new URLSearchParams({
     search_terms: q, search_simple: 1, action: "process", json: 1, page_size: 30, sort_by: "unique_scans_n",
     tagtype_0: "countries", tag_contains_0: "contains", tag_0: "germany",
     fields: "code,product_name,product_name_de,brands,nutriments",
   });
-  try {
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(r.status);
-    const data = await r.json();
-    onlineResults = {};
-    const foods = (data.products || []).map(pr => offFood(pr, pr.code)).filter(f => f && f.name && plausible(f));
-    foods.forEach(f => onlineResults[f.id] = f);
-    if ($("#search").value.trim() !== q) return;
-    box.innerHTML = foods.length
-      ? `<h3 class="online-head">Online gefunden</h3><div class="list">${foods.map(f => `<button class="food" data-online="${esc(f.id)}">
-          <span class="n">${esc(f.name)}</span><span class="k">${num(f.kcal)} kcal</span>
-          <span class="d">pro 100 g · ${num(f.p, 1)} g Protein · ${num(f.kh, 1)} g KH · ${num(f.f, 1)} g Fett</span>
-        </button>`).join("")}</div>
-        <p class="muted small center">Daten: Open Food Facts. Bitte kurz mit der Packung vergleichen.</p>`
-      : `<p class="empty center">Online nichts gefunden. Trag es unter „Manuell“ ein oder scanne die Packung.</p>`;
-  } catch (e) {
+  let data = null;
+  // The database is sometimes slow or briefly busy: one quiet retry before giving up
+  for (let attempt = 0; attempt < 2 && !data; attempt++) {
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined });
+      if (!r.ok) throw new Error(r.status);
+      data = await r.json();
+    } catch (e) {
+      if (attempt === 0) await new Promise(res => setTimeout(res, 1200));
+    }
+    if (onlineQuery !== q) return; // the search text changed meanwhile
+  }
+  if (!data) {
+    onlineQuery = null;
     box.innerHTML = `<p class="empty center">Die Online-Suche ist gerade nicht erreichbar. Versuch es gleich nochmal.</p>
       <button class="add-line" data-online-search>Nochmal versuchen</button>`;
+    return;
   }
+  onlineResults = {};
+  const foods = (data.products || []).map(pr => offFood(pr, pr.code)).filter(f => f && f.name && plausible(f));
+  foods.forEach(f => onlineResults[f.id] = f);
+  box.innerHTML = foods.length
+    ? `<h3 class="online-head">Online gefunden</h3><div class="list">${foods.map(f => `<button class="food" data-online="${esc(f.id)}">
+        <span class="n">${esc(f.name)}</span><span class="k">${num(f.kcal)} kcal</span>
+        <span class="d">pro 100 g · ${num(f.p, 1)} g Protein · ${num(f.kh, 1)} g KH · ${num(f.f, 1)} g Fett</span>
+      </button>`).join("")}</div>
+      <p class="muted small center">Daten: Open Food Facts. Bitte kurz mit der Packung vergleichen.</p>
+      <h3 class="online-head">In der App</h3>`
+    : `<p class="empty center">Online nichts gefunden. Trag es unter „Manuell“ ein oder scanne die Packung.</p>`;
 }
 
 // Drop obviously broken database entries
@@ -690,9 +716,10 @@ function submitManual(e) {
   showAmount(food, pick.slot);
 }
 
-// ---------- Barcode scanning (ZXing + Open Food Facts) ----------
+// ---------- Barcode scanning (native BarcodeDetector, ZXing as fallback) ----------
 
-let scanControls = null;
+const SCAN_FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e"];
+let scan = null; // running camera session: { stream, controls, timer }
 let zxingLoad = null;
 
 function loadZXing() {
@@ -707,28 +734,88 @@ function loadZXing() {
   return zxingLoad;
 }
 
+// The phone's own barcode reader (Chrome on Android) is much faster than ZXing
+async function nativeDetector() {
+  if (!("BarcodeDetector" in window)) return null;
+  try {
+    const supported = await BarcodeDetector.getSupportedFormats();
+    const formats = SCAN_FORMATS.filter(f => supported.includes(f));
+    return formats.length ? new BarcodeDetector({ formats }) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 async function startScan() {
+  if (scan) return;
   const status = $("#scan-status");
   if (!navigator.mediaDevices?.getUserMedia) {
     status.textContent = "Dein Browser erlaubt keinen Kamerazugriff. Tipp den Barcode einfach ein.";
     return;
   }
+  const session = scan = {};
+  $("#scan-start").hidden = true;
+  status.textContent = "Kamera wird gestartet …";
   try {
-    status.textContent = "Kamera wird gestartet …";
-    await loadZXing();
-    const reader = new ZXingBrowser.BrowserMultiFormatReader();
-    scanControls = await reader.decodeFromConstraints(
-      { video: { facingMode: "environment" } }, $("#scan-video"),
-      result => { if (result) { stopScan(); lookupBarcode(result.getText()); } });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+    });
+    if (scan !== session) return stream.getTracks().forEach(t => t.stop()); // closed meanwhile
+    session.stream = stream;
+    // Continuous autofocus where supported, so a close-up barcode gets sharp quickly
+    const track = stream.getVideoTracks()[0];
+    if (track.getCapabilities?.().focusMode?.includes("continuous")) {
+      track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {});
+    }
+    const video = $("#scan-video");
+    video.srcObject = stream;
+    await video.play();
     status.textContent = "Halte den Barcode in den Rahmen.";
-    $("#scan-start").hidden = true;
+
+    const detector = await nativeDetector();
+    if (detector) {
+      const tick = async () => {
+        if (scan !== session) return;
+        try {
+          const [hit] = await detector.detect(video);
+          if (hit && scan === session) return foundBarcode(hit.rawValue);
+        } catch (e) { /* frame not ready yet */ }
+        session.timer = setTimeout(tick, 80);
+      };
+      tick();
+    } else {
+      await loadZXing();
+      if (scan !== session) return;
+      const F = ZXingBrowser.BarcodeFormat;
+      // Only product barcodes (EAN/UPC): far less work per frame than trying every format
+      const hints = new Map([[2 /* DecodeHintType.POSSIBLE_FORMATS */, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E]]]);
+      const reader = new ZXingBrowser.BrowserMultiFormatOneDReader(hints, { delayBetweenScanAttempts: 60 });
+      session.controls = await reader.decodeFromVideoElement(video, result => {
+        if (result && scan === session) foundBarcode(result.getText());
+      });
+    }
   } catch (err) {
+    if (scan !== session) return;
+    stopScan();
     status.textContent = "Kamera nicht verfügbar. Erlaube den Zugriff in den Einstellungen oder tipp den Barcode ein.";
   }
 }
 
+function foundBarcode(code) {
+  stopScan();
+  navigator.vibrate?.(60);
+  lookupBarcode(code);
+}
+
 function stopScan() {
-  if (scanControls) { scanControls.stop(); scanControls = null; }
+  if (scan) {
+    clearTimeout(scan.timer);
+    try { scan.controls?.stop(); } catch (e) { /* already stopped */ }
+    scan.stream?.getTracks().forEach(t => t.stop());
+    scan = null;
+    $("#scan-video").srcObject = null;
+  }
   $("#scan-start").hidden = false;
 }
 
@@ -842,7 +929,7 @@ document.addEventListener("click", e => {
   }
   else if (b.dataset.addSlot) openSheet(b.dataset.addSlot);
   else if (b.dataset.entry) editEntry(b.dataset.entry);
-  else if (b.dataset.tab && b.closest("#add-tabs")) showTab(b.dataset.tab);
+  else if (b.dataset.tab && b.closest("#add-tabs")) showTab(b.dataset.tab, true);
   else if (b.dataset.cat) { activeCat = b.dataset.cat; $("#search").value = ""; renderFoodList(); }
   else if (b.hasAttribute("data-refeed-skip")) {
     state.refeedSkip = state.refeedSkip || {};
@@ -855,7 +942,7 @@ document.addEventListener("click", e => {
   else if (b.id === "fav-toggle") toggleFav();
   else if (b.dataset.food) { const f = foodById(b.dataset.food); showAmount(f, pick.slot); }
   else if (b.dataset.online) pickOnline(b.dataset.online);
-  else if (b.hasAttribute("data-online-search")) searchOnline();
+  else if (b.hasAttribute("data-online-search")) { onlineQuery = null; searchOnline(); }
   else if (b.dataset.idea) cookIdea(b.dataset.idea, !!b.closest("#sheet"));
   else if (b.dataset.amount) { $("#amount").value = b.dataset.amount; pick.exact = null; updatePreview(); }
   else if (b.dataset.basis) { manualBasis = b.dataset.basis; $$("#manual-basis button").forEach(x => x.classList.toggle("active", x === b)); }
@@ -865,10 +952,9 @@ $("#fab").addEventListener("click", () => openSheet());
 $("#sheet-close").addEventListener("click", closeSheet);
 $("#sheet").addEventListener("click", e => { if (e.target.id === "sheet") closeSheet(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#sheet").hidden) closeSheet(); });
-$("#search").addEventListener("input", renderFoodList);
-$("#search").addEventListener("keydown", e => {
-  if (e.key === "Enter" && $("#search").value.trim().length >= 3) { e.preventDefault(); searchOnline(); }
-});
+$("#search").addEventListener("input", () => { onlineQuery = null; renderFoodList(); });
+// The keyboard's search key (🔍 / "Suchen") submits the form; this works reliably on phones
+$("#search-form").addEventListener("submit", e => { e.preventDefault(); searchOnline(); });
 $("#amount").addEventListener("input", () => { pick.exact = null; updatePreview(); });
 $("#amount-unit").addEventListener("change", changeUnit);
 $("#amount-form").addEventListener("submit", submitAmount);

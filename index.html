@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="stylesheet" href="app.css?v=24">
+<link rel="stylesheet" href="app.css?v=26">
 </head>
 <body>
 
@@ -276,10 +276,12 @@
     </div>
 
     <div class="tab" data-tab="search">
-      <input type="search" id="search" placeholder="Lebensmittel suchen …" autocomplete="off">
+      <form id="search-form" role="search" action="#">
+        <input type="search" id="search" enterkeyhint="search" placeholder="Lebensmittel suchen …" autocomplete="off">
+      </form>
+      <div id="online"></div>
       <div class="chips" id="cats"></div>
       <div class="list" id="food-list"></div>
-      <div id="online"></div>
     </div>
 
     <div class="tab" data-tab="ideas" hidden>
@@ -309,7 +311,7 @@
         <video id="scan-video" playsinline muted></video>
         <div class="scan-frame"></div>
       </div>
-      <p class="muted center" id="scan-status">Halte den Barcode der Packung vor die Kamera.</p>
+      <p class="muted center" id="scan-status">Die Kamera startet automatisch, sobald du hier bist.</p>
       <button class="btn" id="scan-start">Kamera starten</button>
       <form class="inline-form" id="barcode-form">
         <input id="barcode-input" inputmode="numeric" pattern="[0-9]{6,14}" placeholder="oder Barcode eintippen">
@@ -421,8 +423,8 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="config.js?v=24"></script>
-<script src="foods.js?v=25"></script>
-<script src="app.js?v=24"></script>
+<script src="foods.js?v=26"></script>
+<script src="app.js?v=26"></script>
 <script src="journal.js?v=24"></script>
 <script src="trends.js?v=24"></script>
 <script src="recipes.js?v=24"></script>

@@ -242,7 +242,10 @@ textarea:focus { outline: none; border-color: var(--bordeaux); }
 .food .d { grid-column: 1 / -1; font-size: 14px; color: var(--muted); }
 
 .plan { margin-bottom: 12px; }
-#online { margin-top: 12px; }
+#online:not(:empty) { margin: 10px 0 4px; }
+#online .online-head { margin-top: 6px; }
+.loading-dots::after { content: ""; animation: dots 1.2s steps(4) infinite; }
+@keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
 .online-head { margin: 18px 0 10px; }
 .plan p { margin: 4px 0 10px; }
 
