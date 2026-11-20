@@ -17,8 +17,26 @@ function backfillFibre() {
 }
 backfillFibre();
 
-if (!state.goals) openOnboarding();
-else showView("today");
+// Moving from the old address: the old page hands the saved data over inside the link
+// (#umzug=<gzip, base64url>); the part after # never reaches a server
+async function importMove(packed) {
+  try {
+    const bin = Uint8Array.from(atob(packed.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+    const text = await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+    const moved = JSON.parse(text);
+    const hasData = !!state.goals || Object.keys(state.days).length > 0;
+    if (moved[STORE_KEY] && (!hasData || confirm("Deine Daten von der alten App-Adresse übernehmen? Die Einträge auf diesem Gerät werden dabei ersetzt."))) {
+      for (const [k, v] of Object.entries(moved)) localStorage.setItem(k, v);
+    }
+  } catch (e) { /* broken link: start normally */ }
+  location.replace(APP_URL);
+}
 
-// Recipe or challenge link opened directly
-if (location.hash && handleIncoming(location.hash)) history.replaceState(null, "", APP_URL);
+if (location.hash.startsWith("#umzug=")) importMove(location.hash.slice(7));
+else {
+  if (!state.goals) openOnboarding();
+  else showView("today");
+
+  // Recipe or challenge link opened directly
+  if (location.hash && handleIncoming(location.hash)) history.replaceState(null, "", APP_URL);
+}
