@@ -2,21 +2,45 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Kalorien-Check ist umgezogen</title>
 <meta name="theme-color" content="#6E1A2E">
 <style>
-  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #FBF1EC; color: #6E1A2E; font: 600 18px/1.5 system-ui, sans-serif; text-align: center; padding: 24px; box-sizing: border-box; }
-  a { color: #6E1A2E; }
+  body { margin: 0; min-height: 100vh; background: #FBF1EC; color: #6E1A2E; font: 600 17px/1.5 system-ui, sans-serif; padding: max(24px, env(safe-area-inset-top)) 22px 32px; box-sizing: border-box; }
+  h1 { font-size: 26px; margin: 8px 0 14px; }
+  ol { padding-left: 22px; margin: 0 0 18px; }
+  li { margin-bottom: 12px; }
+  .btn { display: block; width: 100%; box-sizing: border-box; border: 0; border-radius: 16px; padding: 15px; margin: 10px 0; font: 800 17px system-ui, sans-serif; text-align: center; text-decoration: none; cursor: pointer; }
+  .main { background: #6E1A2E; color: #fff; }
+  .ghost { background: #F6D3DC; color: #6E1A2E; }
+  .small { font-size: 14px; font-weight: 500; opacity: .8; }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <p id="msg">Die App ist umgezogen – einen Moment, deine Daten kommen mit …</p>
+
+<!-- iPhone home screen app: its storage cannot travel with a link, so the data goes via the clipboard -->
+<div id="ios" hidden>
+  <h1>Die App ist umgezogen 🏡</h1>
+  <p>Neue Adresse: <b>app.jamileo.com</b>. So nimmst du deine Daten mit:</p>
+  <ol>
+    <li>Tippe auf <b>„Daten kopieren“</b>.
+      <button class="btn main" id="copy">📋 Daten kopieren</button></li>
+    <li>Öffne <b>app.jamileo.com</b> in Safari und tippe auf <b>Teilen ⬆️ → „Zum Home-Bildschirm“</b>.
+      <a class="btn ghost" id="open" href="https://app.jamileo.com/">app.jamileo.com öffnen</a></li>
+    <li>Öffne die <b>neue</b> App über das neue Symbol und tippe auf <b>„Ich hatte die App schon: Daten übernehmen“</b>. Erlaube das Einfügen.</li>
+    <li>Danach dieses alte Symbol löschen (gedrückt halten → „App entfernen“).</li>
+  </ol>
+  <p class="small">Deine Daten bleiben dabei auf deinem Handy und gehen an keinen Server.</p>
+</div>
+
 <script>
 // The app moved to its own domain. Data in the browser belongs to the old address,
 // so it is packed into the link (after #, never sent to any server) and unpacked there.
 const NEW = "https://app.jamileo.com/";
 const PREFIX = "jamileo-kalorien-check";
+const iosHomeApp = navigator.standalone === true;
 
 async function pack(obj) {
   const gz = new Blob([JSON.stringify(obj)]).stream().pipeThrough(new CompressionStream("gzip"));
@@ -27,20 +51,33 @@ async function pack(obj) {
 }
 
 (async () => {
-  let target = NEW + location.hash; // recipe and challenge links keep working
+  let link = null;
   try {
     const data = {};
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (k.startsWith(PREFIX) && !k.endsWith("-moved")) data[k] = localStorage.getItem(k);
     }
-    if (data[PREFIX + "-v1"] && !localStorage.getItem(PREFIX + "-moved")) {
-      target = NEW + "#umzug=" + await pack(data);
-      localStorage.setItem(PREFIX + "-moved", "1");
-    }
+    if (data[PREFIX + "-v1"]) link = NEW + "#umzug=" + await pack(data);
   } catch (e) { /* no storage access: just forward */ }
-  document.getElementById("msg").innerHTML = `Die App ist umgezogen: <a href="${NEW}">${NEW.replace("https://", "").replace(/\/$/, "")}</a>`;
-  location.replace(target);
+
+  if (iosHomeApp && link) {
+    document.getElementById("msg").hidden = true;
+    document.getElementById("ios").hidden = false;
+    const btn = document.getElementById("copy");
+    btn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(link);
+        btn.textContent = "✓ Kopiert – weiter mit Schritt 2";
+      } catch (e) {
+        btn.textContent = "Kopieren hat nicht geklappt – nochmal tippen";
+      }
+    });
+    return;
+  }
+  document.getElementById("msg").innerHTML = `Die App ist umgezogen: <a href="${NEW}">app.jamileo.com</a>`;
+  // Recipe and challenge links keep working; everything else carries the data along
+  location.replace(location.hash.length > 1 ? NEW + location.hash : link || NEW);
 })();
 </script>
 </body>
